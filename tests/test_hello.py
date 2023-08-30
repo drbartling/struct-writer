@@ -1,6 +1,6 @@
 import pytest
 
-import hello
+import structured_api
 
 make_greeting_params = [
     ("World", False, "Hello, World!"),
@@ -11,5 +11,5 @@ make_greeting_params = [
 
 @pytest.mark.parametrize("name, formality, expected", make_greeting_params)
 def test_make_greeting(name, formality, expected):
-    result = hello.make_greeting(name, formality)
+    result = structured_api.make_greeting(name, formality)
     assert expected == result
