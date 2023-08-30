@@ -1,0 +1,109 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+    <Product Id='*'
+        Name='$(var.product_name)'
+        Version='$(var.product_version)'
+        Manufacturer='$(var.company_name)'
+        UpgradeCode='$(var.upgrade_code)'
+        Language='1033'
+        Codepage='1252' >
+        <Package Id='*'
+            Keywords='Installer'
+            Description="$(var.description)"
+            Comments='TODO: Comments'
+            Manufacturer='$(var.company_name)'
+            InstallerVersion='100'
+            Languages='1033'
+            Compressed='yes'
+            SummaryCodepage='1252' />
+        <MajorUpgrade AllowSameVersionUpgrades="yes"
+            DowngradeErrorMessage="This version is older than the currently installed version of $(var.product_name)" />
+        <Media Id='1'
+            Cabinet='Setup_1.cab'
+            EmbedCab='yes'
+            DiskPrompt='CD-ROM #1'
+            CompressionLevel="mszip" />
+        <Property Id='DiskPrompt'
+            Value="AP Studio Installation [1]" />
+
+        <Directory Id='TARGETDIR'
+            Name='SourceDir'>
+            <Directory Id='ProgramFilesFolder'
+                Name='ProgramFolder'>
+                <Directory Id='CompanyFolder'
+                    Name='$(var.company_name)'>
+                    <Directory Id='InstallDirectory'
+                        Name='$(var.product_name)'>
+                        <Component Id='Path'
+                            Guid='$(var.path_code)'
+                            KeyPath='yes'>
+                            <Environment Id='PATH'
+                                Name='PATH'
+                                Value='[InstallDirectory]'
+                                Permanent='no'
+                                Part='last'
+                                Action='set'
+                                System='yes' />
+                        </Component>
+                        <Component Id='MainExecutable'
+                            Guid='*'>
+                            <File Id='MainExecutableFile'
+                                Name='$(var.executable_name)'
+                                DiskId='1'
+                                Source='$(var.executable_path)'
+                                KeyPath='yes'>
+                                <Shortcut Id="StartMenuShortcut"
+                                    Directory="ProgramMenuCompanyFolder"
+                                    Name="Hello"
+                                    WorkingDirectory='InstallDirectory'
+                                    Icon='app.ico'
+                                    IconIndex="0"
+                                    Advertise="yes" />
+                                <Shortcut Id="GreetingsShortcut"
+                                    Directory="ProgramMenuCompanyFolder"
+                                    Name="Greetings"
+                                    Arguments='--formal'
+                                    WorkingDirectory='InstallDirectory'
+                                    Icon='app.ico'
+                                    IconIndex="0"
+                                    Advertise="yes" />
+                            </File>
+                        </Component>
+                    </Directory>
+                </Directory>
+            </Directory>
+            <Directory Id="ProgramMenuFolder"
+                Name="Programs">
+                <Directory Id="ProgramMenuCompanyFolder"
+                    Name="$(var.company_name)">
+                    <Component Id='ProgramMenuCompanyFolder'
+                        Guid='*'>
+                        <RemoveFolder Id='ProgramMenuCompanyFolder'
+                            On='uninstall' />
+                        <RegistryValue Root='HKCU'
+                            Key='Software\[Manufacturer]\shortcuts'
+                            Type='string'
+                            Value=''
+                            KeyPath='yes' />
+                        <Shortcut Id="UninstallProduct"
+                            Name="Uninstall $(var.product_name)"
+                            Target="[SystemFolder]msiexec.exe"
+                            Arguments="/x [ProductCode]"
+                            Description="Uninstalls $(var.product_name)" />
+                    </Component>
+                </Directory>
+            </Directory>
+        </Directory>
+        <Feature Id='Complete'
+            Level='1'>
+            <ComponentRef Id='MainExecutable' />
+            <ComponentRef Id='ProgramMenuCompanyFolder' />
+            <ComponentRef Id='Path' />
+        </Feature>
+        <Icon Id="app.ico"
+            SourceFile="$(var.icon_path)" />
+        <UIRef Id="WixUI_Minimal" />
+        <WixVariable Id="WixUILicenseRtf"
+            Value="$(var.license_file)" />
+    </Product>
+</Wix>

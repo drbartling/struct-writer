@@ -1,0 +1,52 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+minimum_pre_commit_version: 2.15.0
+repos:
+- repo: https://github.com/pycqa/isort
+  rev: 5.12.0
+  hooks:
+  - id: isort
+    name: isort (python)
+    args: [--profile, black, --filter-files]
+    stages: [commit]
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.7.0
+  hooks:
+  - id: pretty-format-yaml
+    args: [--autofix]
+    stages: [commit]
+  - id: pretty-format-toml
+    args: [--autofix]
+    stages: [commit]
+- repo: https://github.com/psf/black
+  rev: 23.1.0
+  hooks:
+  - id: black
+    stages: [commit]
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+  - id: check-added-large-files
+  - id: check-json
+  - id: check-toml
+  - id: check-yaml
+  - id: detect-private-key
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+- repo: local
+  hooks:
+  - id: test
+    name: unit tests
+    description: Run unit tests.
+    entry: poetry run pytest
+    language: system
+    types: [python]
+    pass_filenames: false
+    stages: [commit]
+  - id: pylint
+    name: pylint
+    entry: poetry run pylint
+    args: [-rn]
+    language: system
+    types: [python]
+    stages: [commit]
