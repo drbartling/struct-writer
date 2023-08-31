@@ -69,3 +69,8 @@ typedef struct  API_command_s {
 	} command;
 } API_command_t;
 ```
+
+## development
+```
+watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && pylint ."
+```

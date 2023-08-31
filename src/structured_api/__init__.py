@@ -1,4 +1,4 @@
-from .hello import make_greeting
+from .structure import Structure
 
 __version__ = "1.0.0"
-__all__ = ["make_greeting"]
+__all__ = ["Structure"]
