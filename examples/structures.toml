@@ -1,0 +1,13 @@
+[cmd_reset]
+description = "Request a software reset"
+display_name = "reset request"
+type = "structure"
+
+[cmd_temperature_set]
+description = "Request a change in temperature in degrees C"
+display_name = "Request temperature change (C)"
+type = "structure"
+
+[cmd_temperature_set.members]
+temperature = {length = 2, type = 'int'}
+units = {length = 1, type = 'temperature_units'}

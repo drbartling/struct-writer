@@ -29,7 +29,7 @@ show_missing = true
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["generate_api_code", "structured_api"]
+source = ["generate_structured_code", "structured_api"]
 
 [tool.isort]
 line_length = 80
@@ -47,6 +47,8 @@ version = "0.1.0"
 [tool.poetry.dependencies]
 click = "^8.1.3"
 python = "^3.10,<3.12"
+pyyaml = "^6.0.1"
+rich = "^13.5.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.1.0"
@@ -60,7 +62,7 @@ pytest = "^7.2.2"
 pytest-cov = "^4.0.0"
 
 [tool.poetry.scripts]
-generate-api-code = "generate_api_code.generate_api_code:main"
+generate-code = "generate_structured_code.generate_structured_code:main"
 
 [tool.pylint.basic]
 argument-rgx = '^([a-z_][a-z0-9]*)((_([a-z0-9]+|[A-Z0-9]+))*)?$'

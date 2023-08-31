@@ -14,9 +14,9 @@ class Structure:
         name = list(dictionary.keys())[0]
         return cls(
             name=name,
-            brief=dictionary[name]["brief"],
-            description=dictionary[name]["description"],
-            members=Member.from_dict(dictionary[name]["members"]),
+            brief=dictionary[name].get("brief"),
+            description=dictionary[name].get("description"),
+            members=Member.from_dict(dictionary[name].get("members", {})),
         )
 
     def render(self):
@@ -27,7 +27,10 @@ class Structure:
             "*/\n"
             f"typedef struct {self.name}_s {{\n"
         )
-        members = "\n".join([m.render() for m in self.members])
+        if self.members:
+            members = "\n".join([m.render() for m in self.members])
+        else:
+            members = "uint8_t empty[0];"
         end = f"\n}} {self.name}_t;\n"
         return start + members + end
 
@@ -35,12 +38,20 @@ class Structure:
 @dataclass
 class Member:
     name: str
+    length: int
     type: str
     description: Optional[str] = None
 
     @classmethod
     def from_dict(cls, dictionary: dict[str, Any]):
-        return [cls(n, t) for n, t in dictionary.items()]
+        members = []
+        for name, definition in dictionary.items():
+            definition["name"] = name
+            members.append(cls(**definition))
+        return members
 
     def render(self):
+        if "int" == self.type:
+            bits = self.length * 8
+            return f"int{bits}_t {self.name};"
         return f"{self.type}_t {self.name};"
