@@ -1,73 +1,71 @@
-# Python Template
+# Structured API
 
-Template for a stand-alone python tool or script
+Define a bare structured API, useful for interfaces that don't need to be
+portable across multiple platforms.  E.G. embedded applications targeting a
+single architecture.
 
-## About the Template
+## Usage
 
-Replace this section with "About `project name`"
+Define the API in TOML or another markup language.
 
-This template sets up a python project using poetry to manage dependencies, pytest for unit testing, pyinstaller for building an executable, and wix for creating a windows installer for distribution.
+```toml
+prefix="API"
 
-## Getting Started
+[command]
+type="group"
+display_name="API command"
+description="Commands sent from the host to the device"
 
-### Setup
-- Install the latest version of python
-	- MacOS: `brew install python`
-	- Windows: `winget install Python.Python.3.11`
-	- Ubuntu: `sudo apt install python`
-- Install [poetry](https://python-poetry.org/)
-	- [Installation Instructions](https://python-poetry.org/docs/#installation)
-- Install project dependencies:
-	- `poetry install`
-- Activate project virtual environment:
-	- `poetry shell`
-- Run the example program
-	- `hello Bob`
+[cmd_reset]
+type="struct"
+group=command
+group_enum=1
+display_name="reset request"
+description="Request a software reset"
 
-### Testing
-
-```bash
-pytest
+[cmd_temperature_set]
+type="struct"
+group=command
+group_enum=2
+display_name="Request temperature change (C)"
+description="Request a change in temperature in degrees C"
+[cmd_temperature_set.members]
+temperature_c = "int16"
 ```
 
-### Building Executable
+This will generate code that looks like this for c by default
+```c
+/// API command tags
+///
+/// Enumerates the Commands sent from the host to the device
+typedef enum API_command_tag_e {
+	/// Request a software reset
+	/// @see API_cmd_reset_t
+	API_rsp_reset = 0x1,
+	/// Request temperature change (C)
+	/// @see API_cmd_temperature_set_t
+	API_cmd_temperature_set = 0x2,
+} API_command_tag_t
 
-```bash
-python tools/app_build.py
+/// reset request
+///
+/// Request a software reset
+typedef struct API_rsp_reset_e {
+    uint8_t empty[0];
+} API_rsp_reset_t;
+
+/// Request temperature change (C)
+///
+/// Request a change in temperature in degrees C
+typedef struct API_cmd_temperature_set_e {
+    int16_t temperature_c;
+} API_cmd_temperature_set_t;
+
+typedef struct  API_command_s {
+	API_command_tag_t tag;
+	union {
+		API_cmd_reset_t reset;
+		API_cmd_temperature_set_t cmd_temperature_set;
+	} command;
+} API_command_t;
 ```
-
-### Building The Windows Installer
-
-- Install build dependencies
-	- Windows: `winget install WixToolset.AdditionalTools`
-- Build the installer
-	- `python tools/installer_build.py`
-
-## Using the Template
-Modify the getting started section for your specific application.  Update the rest of the template mostly by searching for "hello" and replacing it with what's appropriate for your application.
-
-		In `tools/installer_build.py`, replace the `uuid.uuid4()` calls with a fixed [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier) ([GUID](https://learn.microsoft.com/en-us/dotnet/api/system.guid?view=net-7.0)).
-
-Change this:
-```python
-f'-dupgrade_code="{uuid.uuid4()}"',  # TODO: Hard code a permanent uuid
-f'-dpath_code="{uuid.uuid4()}"',  # TODO: Hard code a permanent uuid
-```
-Into this:
-```python
-'-dupgrade_code="12345678-90ab-cdef-1234-567890abcdef"',
-'-dpath_code="12345678-90ab-cdef-1234-567890abcdef"',
-```
-
-## Template Goal
-
-Most people and organisations have figured out hot to implement the features customers are requesting.  But often "doing things the right way" is deferred until it becomes nearly impossible to ever do things the "right way".
-
-I want to make it easy to start a new project with tests, documentation, installers, etc.  Everything that makes it easier to get those features out the door and delivered relatively stress free.
-
-I don't think this template does that for a oython project, yet, but it puts a few things in place and will make it easier for people I know to start a new python project and deliver it to co-workers, customers, freinds, and family.
-
-Hope it helps.
-
-## Feedback
-Create issues or pull requests if you think there's a way to improve it.
