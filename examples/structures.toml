@@ -9,5 +9,13 @@ display_name = "Request temperature change (C)"
 type = "structure"
 
 [cmd_temperature_set.members]
-temperature = {length = 2, type = 'int'}
-units = {length = 1, type = 'temperature_units'}
+temperature = {length = 2, type = 'int', description = 'Desired temperature'}
+units = {length = 1, type = 'temperature_units', description = 'Units for the temperature'}
+
+[commands]
+description = "Debug commands for thermostat"
+type = "group"
+
+[commands.members]
+reset = {tag = 1, length = 0, type = "cmd_reset", description = "Reset the thermostat"}
+temperature_set = {tag = 2, length = 0, type = "cmd_temperature_set", description = "Set the temperature"}

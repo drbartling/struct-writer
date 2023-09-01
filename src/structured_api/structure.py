@@ -1,5 +1,6 @@
-from dataclasses import dataclass
 from typing import Any, Optional
+
+from pydantic.dataclasses import dataclass
 
 
 @dataclass
@@ -7,7 +8,7 @@ class Structure:
     name: str
     brief: Optional[str] = None
     description: Optional[str] = None
-    members: Optional["Member"] = None
+    members: Optional[list["Member"]] = None
 
     @classmethod
     def from_dict(cls, dictionary: dict[str, Any]):
@@ -51,7 +52,8 @@ class Member:
         return members
 
     def render(self):
+        s = f"/// {self.description}\n" if self.description is not None else ""
         if "int" == self.type:
             bits = self.length * 8
-            return f"int{bits}_t {self.name};"
-        return f"{self.type}_t {self.name};"
+            return s + f"int{bits}_t {self.name};"
+        return s + f"{self.type}_t {self.name};"

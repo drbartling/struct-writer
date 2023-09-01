@@ -7,8 +7,11 @@ import yaml
 from rich.traceback import install
 
 from structured_api import Structure
+from structured_api.group import Group
 
 install()
+
+rendered = {}
 
 
 @click.command()
@@ -42,15 +45,28 @@ def main(input_definition: Path, output_file: Path):
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", encoding="utf-8") as f:
         f.write("#include <stdint.h>\n\n")
-        for name, definition in definitions.items():
-            try:
-                element_type = definition["type"]
-            except KeyError as exc:
-                raise KeyError(f"No `type` for `{name}`") from exc
-            if "structure" == element_type:
-                s = Structure.from_dict({name: definition})
-                f.write(s.render())
+        for name in definitions.keys():
+            f.write(render_element(name, definitions))
             f.write("\n")
+
+
+def render_element(element: str, elements: dict[str, any]):
+    if element in rendered:
+        return ""
+
+    definition = elements[element]
+    try:
+        element_type = definition["type"]
+    except KeyError as exc:
+        raise KeyError(f"No `type` for `{element}`") from exc
+
+    if "structure" == element_type:
+        s = Structure.from_dict({element: definition})
+        return s.render()
+    if "group" == element_type:
+        g = Group.from_dict({element: definition})
+        return g.render()
+    return ""
 
 
 def load_markup_file(markup_file: Path):
