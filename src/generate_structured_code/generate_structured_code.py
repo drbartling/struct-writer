@@ -1,4 +1,5 @@
 import json
+import logging
 import tomllib
 from pathlib import Path
 
@@ -6,12 +7,13 @@ import click
 import yaml
 from rich.traceback import install
 
-from structured_api import Structure
-from structured_api.group import Group
+from structured_api import Group, Structure
+
+_logger = logging.getLogger(__name__)
 
 install()
 
-rendered = {}
+rendered = set()
 
 
 @click.command()
@@ -44,15 +46,24 @@ def main(input_definition: Path, output_file: Path):
     definitions = load_markup_file(input_definition)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", encoding="utf-8") as f:
-        f.write("#include <stdint.h>\n\n")
-        for name in definitions.keys():
-            f.write(render_element(name, definitions))
-            f.write("\n")
+        render_file(f, definitions)
 
 
-def render_element(element: str, elements: dict[str, any]):
+def render_file(f, elements: dict[str, any]):
+    file_info = elements["file"]
+    f.write(file_info["header"])
+    for name in elements.keys():
+        render_element(f, name, elements)
+    f.write(file_info["footer"])
+
+
+def render_element(f, element: str, elements: dict[str, any]):
+    if element not in elements:
+        _logger.warning("Unable to render %s", element)
+        return
     if element in rendered:
-        return ""
+        return
+    rendered.add(element)
 
     definition = elements[element]
     try:
@@ -60,13 +71,17 @@ def render_element(element: str, elements: dict[str, any]):
     except KeyError as exc:
         raise KeyError(f"No `type` for `{element}`") from exc
 
+    # if "enum" == element_type:
+    #     e = Enumeration.from_dict({element: definition})
+    #     f.write(e.render())
     if "structure" == element_type:
         s = Structure.from_dict({element: definition})
-        return s.render()
+        f.write(s.render())
     if "group" == element_type:
         g = Group.from_dict({element: definition})
-        return g.render()
-    return ""
+        for member in g.members.values():
+            render_element(f, member.type, elements)
+        f.write(g.render())
 
 
 def load_markup_file(markup_file: Path):

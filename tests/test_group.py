@@ -25,7 +25,7 @@ def test_simple_group():
         "*\n"
         "* Tags to identify which structure to parse when handling the commands group\n"
         "*/\n"
-        "typedef enum commands_tag_e {\n"
+        "typedef PACKED_ENUM(commands_tag_e) {\n"
         "/// \n"
         "/// @see reset_t\n"
         "commands_reset = 0x1,\n"
@@ -33,6 +33,7 @@ def test_simple_group():
         "/// @see set_temperature_t\n"
         "commands_set_temperature = 0x2,\n"
         "} commands_tag_t;\n"
+        "\n"
         "\n"
         "/** Thermostat commands\n"
         "*\n"
@@ -43,8 +44,8 @@ def test_simple_group():
         "union {\n"
         "reset_t reset;\n"
         "set_temperature_t set_temperature;\n"
-        "} commands;\n"
+        "};\n"
         "} commands_t;\n"
+        "\n"
     )
-
     assert expected == result

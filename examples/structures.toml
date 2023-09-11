@@ -19,3 +19,8 @@ type = "group"
 [commands.members]
 reset = {tag = 1, length = 0, type = "cmd_reset", description = "Reset the thermostat"}
 temperature_set = {tag = 2, length = 0, type = "cmd_temperature_set", description = "Set the temperature"}
+
+[file]
+footer = ""
+header = ""
+type = "file"

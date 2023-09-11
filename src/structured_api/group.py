@@ -33,10 +33,10 @@ class Group:
             "*\n"
             f"* Tags to identify which structure to parse when handling the {self.name} group\n"
             "*/\n"
-            f"typedef enum {self.name}_tag_e {{\n"
+            f"typedef PACKED_ENUM({self.name}_tag_e) {{\n"
         )
         members = "\n".join([m.render_enum() for m in self.members.values()])
-        end = f"\n}} {self.name}_tag_t;\n"
+        end = f"\n}} {self.name}_tag_t;\n\n"
         return start + members + end
 
     def render_union(self):
@@ -50,8 +50,14 @@ class Group:
             f"union {{\n"
         )
         members = "\n".join([m.render_union() for m in self.members.values()])
-        end = f"\n}} {self.name};\n" f"}} {self.name}_t;\n"
+        end = f"\n}};\n" f"}} {self.name}_t;\n\n"
         return start + members + end
+
+    @property
+    def width(self):
+        max_tag = max(m for m in self.members)
+        chars = len(f"{max_tag:0X}")
+        return chars
 
 
 @dataclass
@@ -73,10 +79,15 @@ class GroupMember:
         return members
 
     def render_enum(self):
+        enum_value = (
+            f"0x{self.tag:0{self.group.width}X}"
+            if self.tag >= 0
+            else f"{self.tag}"
+        )
         s = (
             f"/// {self.description}\n"
             f"/// @see {self.type}_t\n"
-            f"{self.group.name}_{self.name} = 0x{self.tag:0X},"
+            f"{self.group.name}_{self.name} = {enum_value},"
         )
         return s
 
