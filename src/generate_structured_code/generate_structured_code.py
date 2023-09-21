@@ -79,6 +79,13 @@ def main(input_definition: Path, template_file: Path, output_file: Path):
 def render_definitions(definitions, templates):
     s = ""
     element_names = set(definitions.keys())
+
+    group_names = {
+        k for k, v in definitions.items() if "group" == v.get("type")
+    }
+    for element_name in group_names:
+        s += render_definition(element_name, definitions, templates)
+
     for element_name in element_names:
         s += render_definition(element_name, definitions, templates)
     return s
