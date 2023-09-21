@@ -1,26 +1,45 @@
 [cmd_reset]
 description = "Request a software reset"
 display_name = "reset request"
+size = 0
 type = "structure"
+
+[cmd_reset.groups]
+commands = {value = 1, name = "reset"}
 
 [cmd_temperature_set]
 description = "Request a change in temperature in degrees C"
 display_name = "Request temperature change (C)"
+members = [
+  {name = "temperature", size = 2, type = 'uint', description = 'Desired temperature'},
+  {name = "units", size = 1, type = 'temperature_units', description = 'Selected temperature unit'}
+]
+size = 3
 type = "structure"
 
-[cmd_temperature_set.members]
-temperature = {length = 2, type = 'int', description = 'Desired temperature'}
-units = {length = 1, type = 'temperature_units', description = 'Units for the temperature'}
+[cmd_temperature_set.groups]
+commands = {value = 2, name = "temperature_set"}
 
 [commands]
 description = "Debug commands for thermostat"
+display_name = "Thermostat command"
 type = "group"
 
-[commands.members]
-reset = {tag = 1, length = 0, type = "cmd_reset", description = "Reset the thermostat"}
-temperature_set = {tag = 2, length = 0, type = "cmd_temperature_set", description = "Set the temperature"}
-
 [file]
-footer = ""
-header = ""
-type = "file"
+brief = '''
+Command set for a thermostat
+'''
+description = '''
+Provides basic debug commands for a thermostat.
+Allows for both imperial and metric units.
+'''
+
+[temperature_units]
+description = "Units used for temperature"
+display_name = "Temperature Units"
+size = 1
+type = "enum"
+values = [
+  {label = "c", display_name = "C", description = "Degrees Celcius"},
+  {label = "f", display_name = "F", description = "Degrees Fahrenheit"}
+]

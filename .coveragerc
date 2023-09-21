@@ -6,8 +6,7 @@ source =
 branch = true
 parallel = true
 source =
-    generate_api_code
-    structured_api
+    templating
 
 [report]
 show_missing = true

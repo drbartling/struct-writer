@@ -29,7 +29,7 @@ show_missing = true
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["generate_structured_code", "structured_api"]
+source = ["templating"]
 
 [tool.isort]
 line_length = 80

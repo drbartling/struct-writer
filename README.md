@@ -72,5 +72,5 @@ typedef struct  API_command_s {
 
 ## development
 ```
-watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && generate-code --input-definition examples/structures.toml -o examples/output/structures.h && pylint ."
+watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && generate-code --input-definition examples/structures.toml --template-file examples/template.toml --output-file examples/output/structures.h && pylint ."
 ```
