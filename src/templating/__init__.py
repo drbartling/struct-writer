@@ -85,7 +85,7 @@ class Template:
         if __mapping is _sentinel_dict:
             mapping = kwds
         else:
-            mapping = _merge(__mapping, kwds)
+            mapping = merge(__mapping, kwds)
         return mapping
 
 
@@ -102,13 +102,13 @@ def named_tuple_from_dict(name: str, dictionary: dict[str, Any]):
     return tuple_obj
 
 
-def _merge(a, b):  # pragma: no cover
+def merge(a, b):  # pragma: no cover
     for k, vb in b.items():
         if va := a.get(k):
             if isinstance(vb, collections.abc.MutableMapping) and isinstance(
                 va, collections.abc.MutableMapping
             ):
-                _merge(va, vb)
+                merge(va, vb)
             else:
                 a[k] = b[k]
         else:

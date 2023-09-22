@@ -3,22 +3,18 @@ description = "Request a software reset"
 display_name = "reset request"
 size = 0
 type = "structure"
-
-[cmd_reset.groups]
-commands = {value = 1, name = "reset"}
+groups.commands = {value = 1, name = "reset"}
 
 [cmd_temperature_set]
-description = "Request a change in temperature in degrees C"
-display_name = "Request temperature change (C)"
+description = "Request a change in temperature"
+display_name = "Request temperature change"
 members = [
-  {name = "temperature", size = 2, type = 'uint', description = 'Desired temperature'},
+  {name = "temperature", size = 2, type = 'int', description = 'Desired temperature'},
   {name = "units", size = 1, type = 'temperature_units', description = 'Selected temperature unit'}
 ]
 size = 3
 type = "structure"
-
-[cmd_temperature_set.groups]
-commands = {value = 2, name = "temperature_set"}
+groups.commands = {value = 2, name = "temperature_set"}
 
 [commands]
 description = "Debug commands for thermostat"
@@ -35,6 +31,6 @@ display_name = "Temperature Units"
 size = 1
 type = "enum"
 values = [
-  {label = "c", display_name = "C", description = "Degrees Celcius"},
+  {label = "c", value = 0, display_name = "C", description = "Degrees Celcius"},
   {label = "f", display_name = "F", description = "Degrees Fahrenheit"}
 ]

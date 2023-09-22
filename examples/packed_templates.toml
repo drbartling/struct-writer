@@ -1,0 +1,22 @@
+enum.header = '''
+/// ${enumeration.display_name}
+/// ${enumeration.description}
+enum PACKED_ENUM(${enumeration.name}_e){
+'''
+file.header = '''
+#ifndef ${out_file.stem.upper()}_H_
+#define ${out_file.stem.upper()}_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <static_assert.h>
+#include <stdint.h>
+#include <packed.h>
+
+'''
+structure.header = '''
+/// ${structure.display_name}
+/// ${structure.description}
+typedef PACKED_STRUCT(${structure.name}_s){
+'''

@@ -1,17 +1,22 @@
+import tomllib
+
+
+def default_template():
+    template = """
 [enum]
 default = '''
 /// ${value.description}
-${enumeration.name.lower()}_${value.label.lower()},
+${enumeration.name}_${value.label},
 '''
 footer = '''
-} ${enumeration.name.lower()}_t;
-STATIC_ASSERT_TYPE_SIZE(${enumeration.name.lower()}_t, ${enumeration.size});
+} ${enumeration.name}_t;
+STATIC_ASSERT_TYPE_SIZE(${enumeration.name}_t, ${enumeration.size});
 
 '''
 header = '''
 /// ${enumeration.display_name}
 /// ${enumeration.description}
-typedef enum ${enumeration.name.lower()}_e{
+typedef enum ${enumeration.name}_e{
 '''
 valued = '''
 /// ${value.description}
@@ -52,7 +57,7 @@ tag_name = '${group.name}_tag'
 
 [structure]
 footer = '''
-} ${structure.name.lower()}_t;
+} ${structure.name}_t;
 STATIC_ASSERT_TYPE_SIZE(${structure.name}_t, ${structure.size});
 
 '''
@@ -66,7 +71,7 @@ type_name = '${structure.name}_t'
 [structure.members]
 default = '''
 /// ${member.description}
-${member.type.lower()}_t ${member.name};
+${member.type}_t ${member.name};
 '''
 empty = '''
 /// Structure is intentially empty (zero sized)
@@ -86,3 +91,7 @@ union.footer = '''
 union.header = '''
 union {
 '''
+
+    """
+    template = tomllib.loads(template)
+    return template
