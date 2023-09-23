@@ -37,11 +37,11 @@ profile = "black"
 
 [tool.poetry]
 authors = ["Ryan Bartling <ryan.bartling@gmail.com>"]
-description = "Generate structured code to meet API contracts"
+description = "Generate structured code for APIs and documentation"
 include = ["README.md", "pyproject.toml"]
-name = "structured_api"
+name = "struct_gen"
 readme = "README.md"
-repository = "https://github.com/drbartling/structured_api"
+repository = "https://github.com/drbartling/struct-gen"
 version = "0.1.0"
 
 [tool.poetry.dependencies]
@@ -63,7 +63,7 @@ pytest = "^7.2.2"
 pytest-cov = "^4.0.0"
 
 [tool.poetry.scripts]
-generate-code = "generate_structured_code.generate_structured_code:main"
+struct-gen = "struct_gen.generate_structured_code:main"
 
 [tool.pylint.basic]
 argument-rgx = '^([a-z_][a-z0-9]*)((_([a-z0-9]+|[A-Z0-9]+))*)?$'

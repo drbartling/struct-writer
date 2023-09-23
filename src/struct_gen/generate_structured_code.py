@@ -9,7 +9,7 @@ import yaml
 from rich.traceback import install
 
 import templating
-from generate_structured_code.default_template import default_template
+from struct_gen.default_template import default_template
 from templating import Template
 
 _logger = logging.getLogger(__name__)
@@ -319,3 +319,9 @@ def load_markup_file(markup_file: Path):
         with markup_file.open("rb") as f:
             return yaml.full_load(f)
     raise ValueError(f"Unsupported Extension: {extension}")
+
+
+if __name__ == "__main__":  # pragma: no cover
+    # Ignored missing parameter lint, since the click library passes the
+    # arguments in from the command line for us
+    main()  # pylint:disable=no-value-for-parameter
