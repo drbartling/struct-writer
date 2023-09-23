@@ -40,9 +40,13 @@ authors = ["Ryan Bartling <ryan.bartling@gmail.com>"]
 description = "Generate structured code for APIs and documentation"
 include = ["README.md", "pyproject.toml"]
 name = "struct_writer"
+packages = [
+  {include = "struct_writer"},
+  {include = "templating"}
+]
 readme = "README.md"
 repository = "https://github.com/drbartling/struct-writer"
-version = "0.1.0"
+version = "0.1.1"
 
 [tool.poetry.dependencies]
 click = "^8.1.3"
