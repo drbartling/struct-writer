@@ -1,7 +1,7 @@
 import pytest
 from pydantic.dataclasses import dataclass
 
-from templating import Template
+from struct_writer.templating import Template
 
 template_substitute_params = [
     (

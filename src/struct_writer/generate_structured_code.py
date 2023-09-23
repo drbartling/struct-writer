@@ -8,14 +8,14 @@ import click
 import yaml
 from rich.traceback import install
 
-import templating
+from struct_writer import templating
 from struct_writer.default_template import default_template
-from templating import Template
+from struct_writer.templating import Template
 
 _logger = logging.getLogger(__name__)
 
 install()
-
+# asd
 rendered = {"file"}
 
 
