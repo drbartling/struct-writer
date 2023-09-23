@@ -9,7 +9,7 @@ import yaml
 from rich.traceback import install
 
 import templating
-from struct_gen.default_template import default_template
+from struct_writer.default_template import default_template
 from templating import Template
 
 _logger = logging.getLogger(__name__)

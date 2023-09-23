@@ -110,7 +110,7 @@ STATIC_ASSERT_TYPE_SIZE(commands_u_t, 4);
 
 An example is geiven in the examples folder:
 ```bash
-struct-gen --input-definition examples/structures.toml --output-file examples/output/structures.h
+struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h
 ```
 
 ### Customizable templates
@@ -119,7 +119,7 @@ Code generation is customizable using templates.  If no templates are provided, 
 The default template is shown in the examples folder.
 
 ```bash
-struct-gen --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template.toml
+struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template.toml
 ```
 
 ### Multiple templates
@@ -127,10 +127,10 @@ struct-gen --input-definition examples/structures.toml --output-file examples/ou
 Chain templates together to more tightly specify certain files in a project.  For example if a certain file needs specific includes.
 
 ```bash
-struct-gen --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template.toml --template-file examples/packed_templates.toml
+struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template.toml --template-file examples/packed_templates.toml
 ```
 
 ## development
 ```
-watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && struct-gen --input-definition examples/structures.toml --template-file examples/template.toml --output-file examples/output/structures.h && pylint ."
+watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && struct-writer --input-definition examples/structures.toml --template-file examples/template.toml --output-file examples/output/structures.h && pylint ."
 ```
