@@ -58,12 +58,15 @@ rendered = {"file"}
         path_type=Path,
     ),
 )
-def main(input_definition: Path, template_files: Path, output_file: Path):
+def main(
+    input_definition: Path, template_files: Path, output_file: Path
+):  # pragma: no cover
     definitions = load_markup_file(input_definition)
     templates = default_template()
     for template_file in template_files:
         templates = templating.merge(templates, load_markup_file(template_file))
 
+    output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", encoding="utf-8") as f:
         f.write(
             Template(templates["file"]["description"]).safe_render(
@@ -139,15 +142,15 @@ def render_structure(element_name, definitions, templates):
 
 
 def render_structure_members(element_name, definitions, templates):
-    s = ""
+    structure = definitions.get(element_name)
 
-    if structure := definitions.get(element_name):
-        assert structure["type"] == "structure"
-        if members := structure.get("members"):
-            for member in members:
-                s += render_structure_member(member, templates)
-        else:
-            s = templates["structure"]["members"]["empty"]
+    s = ""
+    assert structure["type"] == "structure"
+    if members := structure.get("members"):
+        for member in members:
+            s += render_structure_member(member, templates)
+    else:
+        s = templates["structure"]["members"]["empty"]
     return s
 
 
@@ -196,11 +199,9 @@ def render_enum_values(element_name, definitions, templates):
     enumeration = definitions[element_name]
     enumeration["name"] = element_name
     s = ""
-    if values := enumeration.get("values"):
-        for value in values:
-            s += render_enum_value(value, enumeration, templates)
-    else:
-        s = templates["enum"]["values"]["empty"]
+    values = enumeration.get("values")
+    for value in values:
+        s += render_enum_value(value, enumeration, templates)
     return s
 
 
@@ -307,7 +308,7 @@ def render_group(group_name, definitions, templates):
     return s
 
 
-def load_markup_file(markup_file: Path):
+def load_markup_file(markup_file: Path):  # pragma: no cover
     extension = markup_file.suffix
     if ".toml" == extension:
         with markup_file.open("rb") as f:

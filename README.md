@@ -132,5 +132,5 @@ struct-writer --input-definition examples/structures.toml --output-file examples
 
 ## development
 ```
-watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && struct-writer --input-definition examples/structures.toml --template-file examples/template.toml --output-file examples/output/structures.h && pylint ."
+watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && struct-writer --input-definition examples/structures.toml --template-files examples/template.toml --output-file examples/output/structures.h && pylint ."
 ```
