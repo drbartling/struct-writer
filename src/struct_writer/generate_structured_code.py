@@ -12,10 +12,10 @@ from struct_writer import templating
 from struct_writer.default_template import default_template
 from struct_writer.templating import Template
 
+install()
+
 _logger = logging.getLogger(__name__)
 
-install()
-# asd
 rendered = {"file"}
 
 
