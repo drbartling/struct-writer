@@ -54,7 +54,7 @@ def test_render_empty_struct():
 /// My struct
 /// A struct
 typedef struct MY_empty_struct_s{
-/// Structure is intentially empty (zero sized)
+/// Structure is intentionally empty (zero sized)
 uint8_t empty[0];
 } MY_empty_struct_t;
 STATIC_ASSERT_TYPE_SIZE(MY_empty_struct_t, 0);
@@ -143,7 +143,7 @@ STATIC_ASSERT_TYPE_SIZE(MY_group_tag_t, 1);
 /// My struct
 /// A struct
 typedef struct MY_grouped_struct_s{
-/// Structure is intentially empty (zero sized)
+/// Structure is intentionally empty (zero sized)
 uint8_t empty[0];
 } MY_grouped_struct_t;
 STATIC_ASSERT_TYPE_SIZE(MY_grouped_struct_t, 0);

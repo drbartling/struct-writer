@@ -72,7 +72,7 @@ STATIC_ASSERT_TYPE_SIZE(commands_tag_t, 1);
 /// reset request
 /// Request a software reset
 typedef struct cmd_reset_s {
-    /// Structure is intentially empty (zero sized)
+    /// Structure is intentionally empty (zero sized)
     uint8_t empty[0];
 } cmd_reset_t;
 STATIC_ASSERT_TYPE_SIZE(cmd_reset_t, 0);
@@ -108,7 +108,7 @@ STATIC_ASSERT_TYPE_SIZE(commands_u_t, 4);
 
 ```
 
-An example is geiven in the examples folder:
+An example is given in the examples folder:
 ```bash
 struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h
 ```

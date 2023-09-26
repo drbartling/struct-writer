@@ -74,7 +74,7 @@ default = '''
 ${member.type}_t ${member.name};
 '''
 empty = '''
-/// Structure is intentially empty (zero sized)
+/// Structure is intentionally empty (zero sized)
 uint8_t empty[0];
 '''
 int = '''
