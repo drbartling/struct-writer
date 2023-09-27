@@ -103,7 +103,7 @@ STATIC_ASSERT_TYPE_SIZE(${bit_field.name}_t, ${bit_field.size});
 [bit_field.members]
 default = '''
 /// ${member.description}
-${member.type}_t ${member.name};
+${member.type}_t ${member.name}:${member.bits};
 '''
 reserved = '''
 uint${bit_field.size*8}_t reserved_${member.start}:${member.bits};

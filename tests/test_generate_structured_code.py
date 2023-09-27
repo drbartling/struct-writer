@@ -280,3 +280,65 @@ STATIC_ASSERT_TYPE_SIZE(MY_field_t, 1);
 
 """
     assert expected == result
+
+
+def test_render_bit_field_with_enum():
+    definitions = {
+        "MY_field2": {
+            "type": "bit_field",
+            "display_name": "My field",
+            "description": "A bit field",
+            "size": 2,
+            "members": [
+                {
+                    "name": "power",
+                    "start": 2,
+                    "bits": 1,
+                    "type": "MY_power",
+                    "description": "Power",
+                }
+            ],
+        },
+        "MY_power": {
+            "type": "enum",
+            "display_name": "Power",
+            "description": "Power state",
+            "size": 1,
+            "values": [
+                {
+                    "value": 0,
+                    "label": "off",
+                    "description": "The power is off",
+                },
+                {
+                    "value": 1,
+                    "label": "on",
+                    "description": "The power is on",
+                },
+            ],
+        },
+    }
+    template = default_template.default_template()
+    result = generate_structured_code.render_definitions(definitions, template)
+    expected = """\
+/// Power
+/// Power state
+typedef enum MY_power_e{
+/// The power is off
+MY_power_off = 0x0,
+/// The power is on
+MY_power_on = 0x1,
+} MY_power_t;
+STATIC_ASSERT_TYPE_SIZE(MY_power_t, 1);
+
+/// My field
+/// A bit field
+typedef struct MY_field2_s{
+uint16_t reserved_0:2;
+/// Power
+MY_power_t power:1;
+} MY_field2_t;
+STATIC_ASSERT_TYPE_SIZE(MY_field2_t, 2);
+
+"""
+    assert expected == result

@@ -110,11 +110,11 @@ def render_definition(element_name, definitions, templates):
     s = ""
     if "structure" == definition["type"]:
         s += render_structure(element_name, definitions, templates)
-    elif "enum" == definition["type"]:
+    if "enum" == definition["type"]:
         s += render_enum(element_name, definitions, templates)
-    elif "group" == definition["type"]:
+    if "group" == definition["type"]:
         s += render_group(element_name, definitions, templates)
-    elif "bit_field" == definition["type"]:
+    if "bit_field" == definition["type"]:
         s += render_bit_field(element_name, definitions, templates)
 
     return s
@@ -316,11 +316,11 @@ def render_bit_field(bit_field_name, definitions, templates):
     bit_field["name"] = bit_field_name
     s = ""
 
-    if members := bit_field.get("members"):
-        for member in members:
-            member_name = member["type"]
-            if member_name in definitions:
-                s += render_definition(member_name, definitions, templates)
+    members = bit_field["members"]
+    for member in members:
+        member_name = member["type"]
+        if member_name in definitions:
+            s += render_definition(member_name, definitions, templates)
 
     s += Template(templates["bit_field"]["header"]).safe_render(
         bit_field=bit_field
@@ -381,7 +381,7 @@ def complete_bit_field_member(bit_field_member):
         )
 
         return bit_field_member
-    except:
+    except:  # pragma: no cover
         _logger.error(str(bit_field_member))
         raise
 
