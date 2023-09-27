@@ -52,6 +52,26 @@ def example_definitions():
                 },
             },
         },
+        "cmd_label_thermostat": {
+            "description": "Give the thermostat a name",
+            "display_name": "Label thermostat",
+            "members": [
+                {
+                    "name": "label",
+                    "size": 20,
+                    "type": "str",
+                    "description": "Name for the thermostat",
+                },
+            ],
+            "size": 20,
+            "type": "structure",
+            "groups": {
+                "commands": {
+                    "value": 3,
+                    "name": "label",
+                },
+            },
+        },
         "temperature_units": {
             "description": "Units used for temperature",
             "display_name": "Temperature Units",
@@ -90,6 +110,30 @@ struct_into_bytes_params = [
             + int(75).to_bytes(length=2, byteorder="big", signed=True)
             + b"\x01"
         ),
+    ),
+    (
+        {
+            "commands": {
+                "cmd_label_thermostat": {
+                    "label": "Living Room",
+                }
+            }
+        },
+        (
+            b"\x03"
+            + "Living Room".encode("utf-8")
+            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        ),
+    ),
+    (
+        {
+            "commands": {
+                "cmd_label_thermostat": {
+                    "label": "A very long room name that doesn't fit",
+                }
+            }
+        },
+        (b"\x03" + "A very long room nam".encode("utf-8")),
     ),
 ]
 

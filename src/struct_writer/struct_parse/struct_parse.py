@@ -1,3 +1,8 @@
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
 def element_into_bytes(element, definitions, endianness="big"):
     element_name = list(element.keys())[0]
     b = b""
@@ -95,11 +100,14 @@ def primitive_to_bytes(element, endianness):
         return value["value"]
     if "str" == type_name:
         assert isinstance(value["value"], str)
-        b_str = str(value).encode("utf-8")
+        b_str = str(value["value"]).encode("utf-8")
         diff = value["size"] - len(b_str)
         if 0 < diff:
             b_str += b"\x00" * diff
         if 0 > diff:
             b_str = b_str[0 : value["size"]]
-        return b_str
+            _logger.warning("Truncating string to %s", b_str)
+        return primitive_to_bytes(
+            {"bytes": {"value": b_str, "size": value["size"]}}, endianness
+        )
     raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover
