@@ -118,10 +118,10 @@ def render_definition(element_name, definitions, templates):
     return s
 
 
-def render_structure(element_name, definitions, templates):
-    structure = definitions[element_name]
+def render_structure(structure_name, definitions, templates):
+    structure = definitions[structure_name]
     assert structure["type"] == "structure"
-    structure["name"] = element_name
+    structure["name"] = structure_name
     s = ""
 
     if members := structure.get("members"):
@@ -133,7 +133,7 @@ def render_structure(element_name, definitions, templates):
     s += Template(templates["structure"]["header"]).safe_render(
         structure=structure
     )
-    s += render_structure_members(element_name, definitions, templates)
+    s += render_structure_members(structure_name, definitions, templates)
     s += Template(templates["structure"]["footer"]).safe_render(
         structure=structure
     )
@@ -141,8 +141,8 @@ def render_structure(element_name, definitions, templates):
     return s
 
 
-def render_structure_members(element_name, definitions, templates):
-    structure = definitions.get(element_name)
+def render_structure_members(structure_name, definitions, templates):
+    structure = definitions.get(structure_name)
 
     s = ""
     assert structure["type"] == "structure"
