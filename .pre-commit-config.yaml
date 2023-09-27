@@ -10,16 +10,16 @@ repos:
     args: [--profile, black, --filter-files]
     stages: [commit]
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.7.0
+  rev: v2.10.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix]
     stages: [commit]
   - id: pretty-format-toml
-    args: [--autofix]
+    args: [--autofix, --no-sort, --trailing-commas, --indent, '4']
     stages: [commit]
 - repo: https://github.com/psf/black
-  rev: 23.1.0
+  rev: 23.9.1
   hooks:
   - id: black
     stages: [commit]
