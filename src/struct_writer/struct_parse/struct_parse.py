@@ -85,4 +85,21 @@ def primitive_to_bytes(element, endianness):
         return int(value["value"]).to_bytes(
             value["size"], byteorder=endianness, signed=True
         )
+    if "uint" == type_name:
+        return int(value["value"]).to_bytes(
+            value["size"], byteorder=endianness, signed=False
+        )
+    if "bytes" == type_name:
+        assert isinstance(value["value"], bytes)
+        assert len(value["value"]) == value["size"]
+        return value["value"]
+    if "str" == type_name:
+        assert isinstance(value["value"], str)
+        b_str = str(value).encode("utf-8")
+        diff = value["size"] - len(b_str)
+        if 0 < diff:
+            b_str += b"\x00" * diff
+        if 0 > diff:
+            b_str = b_str[0 : value["size"]]
+        return b_str
     raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover
