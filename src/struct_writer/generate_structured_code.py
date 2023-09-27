@@ -110,10 +110,12 @@ def render_definition(element_name, definitions, templates):
     s = ""
     if "structure" == definition["type"]:
         s += render_structure(element_name, definitions, templates)
-    if "enum" == definition["type"]:
+    elif "enum" == definition["type"]:
         s += render_enum(element_name, definitions, templates)
-    if "group" == definition["type"]:
+    elif "group" == definition["type"]:
         s += render_group(element_name, definitions, templates)
+    elif "bit_field" == definition["type"]:
+        s += render_bit_field(element_name, definitions, templates)
 
     return s
 
@@ -306,6 +308,104 @@ def render_group(group_name, definitions, templates):
     s += render_definition(group_struct["name"], definitions, templates)
 
     return s
+
+
+def render_bit_field(bit_field_name, definitions, templates):
+    bit_field = definitions[bit_field_name]
+    assert bit_field["type"] == "bit_field"
+    bit_field["name"] = bit_field_name
+    s = ""
+
+    if members := bit_field.get("members"):
+        for member in members:
+            member_name = member["type"]
+            if member_name in definitions:
+                s += render_definition(member_name, definitions, templates)
+
+    s += Template(templates["bit_field"]["header"]).safe_render(
+        bit_field=bit_field
+    )
+    s += render_bit_field_members(bit_field_name, definitions, templates)
+    s += Template(templates["bit_field"]["footer"]).safe_render(
+        bit_field=bit_field
+    )
+
+    return s
+
+
+def render_bit_field_members(bit_field_name, definitions, templates):
+    bit_field = definitions.get(bit_field_name)
+
+    s = ""
+    assert bit_field["type"] == "bit_field"
+    members = bit_field["members"]
+    bit_position = 0
+    for member in members:
+        assert bit_position <= member["start"]
+        member = complete_bit_field_member(member)
+        if member["start"] == bit_position:
+            s += render_bit_field_member(bit_field, member, templates)
+        else:
+            s += render_bit_field_reserve(
+                bit_position, bit_field, member, templates
+            )
+            s += render_bit_field_member(bit_field, member, templates)
+        bit_position = member["last"] + 1
+    return s
+
+
+def complete_bit_field_member(bit_field_member):
+    try:
+        assert "start" in bit_field_member
+        assert 0 <= bit_field_member["start"]
+
+        if "last" not in bit_field_member and "bits" not in bit_field_member:
+            bit_field_member["bits"] = 1
+            bit_field_member["last"] = bit_field_member["start"]
+        if "last" not in bit_field_member:
+            bit_field_member["last"] = (
+                bit_field_member["start"] + bit_field_member["bits"] - 1
+            )
+        if "bits" not in bit_field_member:
+            bit_field_member["bits"] = (
+                bit_field_member["last"] - bit_field_member["start"] + 1
+            )
+
+        assert (
+            bit_field_member["last"]
+            == bit_field_member["start"] + bit_field_member["bits"] - 1
+        )
+        assert (
+            bit_field_member["bits"]
+            == bit_field_member["last"] - bit_field_member["start"] + 1
+        )
+
+        return bit_field_member
+    except:
+        _logger.error(str(bit_field_member))
+        raise
+
+
+def render_bit_field_reserve(bit_position, bit_field, member, templates):
+    reserved_member = {
+        "name": "reserved",
+        "start": bit_position,
+        "last": member["start"] - 1,
+        "type": "reserved",
+    }
+    complete_bit_field_member(reserved_member)
+    return render_bit_field_member(bit_field, reserved_member, templates)
+
+
+def render_bit_field_member(bit_field, member, templates):
+    if member_template := templates["bit_field"]["members"].get(member["type"]):
+        return Template(member_template).safe_render(
+            bit_field=bit_field, member=member
+        )
+    member_template = templates["bit_field"]["members"]["default"]
+    return Template(member_template).safe_render(
+        bit_field=bit_field, member=member
+    )
 
 
 def load_markup_file(markup_file: Path):  # pragma: no cover

@@ -218,3 +218,65 @@ STATIC_ASSERT_TYPE_SIZE(MY_struct1_t, 1);
 """
 
     assert expected == result
+
+
+def test_render_bit_field():
+    definitions = {
+        "MY_field": {
+            "type": "bit_field",
+            "display_name": "My field",
+            "description": "A bit field",
+            "size": 1,
+            "members": [
+                {
+                    "name": "foo",
+                    "start": 1,
+                    "last": 3,
+                    "bits": 3,
+                    "type": "int",
+                    "description": "foo",
+                },
+                {
+                    "name": "bar",
+                    "start": 4,
+                    "bits": 1,
+                    "type": "uint",
+                    "description": "bar",
+                },
+                {
+                    "name": "baz",
+                    "start": 6,
+                    "type": "uint",
+                    "description": "baz",
+                },
+                {
+                    "name": "bazz",
+                    "start": 7,
+                    "last": 7,
+                    "type": "uint",
+                    "description": "bazz",
+                },
+            ],
+        },
+    }
+    template = default_template.default_template()
+    result = generate_structured_code.render_definitions(definitions, template)
+    expected = """\
+/// My field
+/// A bit field
+typedef struct MY_field_s{
+uint8_t reserved_0:1;
+/// foo
+int8_t foo:3;
+/// bar
+uint8_t bar:1;
+uint8_t reserved_5:1;
+/// baz
+uint8_t baz:1;
+/// bazz
+uint8_t bazz:1;
+} MY_field_t;
+STATIC_ASSERT_TYPE_SIZE(MY_field_t, 1);
+
+"""
+    assert expected == result
