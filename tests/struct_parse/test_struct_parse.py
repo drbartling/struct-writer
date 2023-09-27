@@ -1,10 +1,19 @@
-import tomllib
+import pytest
 
 from struct_writer import struct_parse
 
 
-def test_enum_to_bytes():
-    definitions = {
+def example_definitions():
+    return {
+        "file": {
+            "brief": "Command set for a thermostat",
+            "description": "Provides basic debug commands for a thermostat.  Allows for both imperial and metric units.",
+        },
+        "commands": {
+            "description": "Debug commands for thermostat",
+            "display_name": "Thermostat command",
+            "type": "group",
+        },
         "cmd_reset": {
             "description": "Request a software reset",
             "display_name": "reset request",
@@ -43,15 +52,6 @@ def test_enum_to_bytes():
                 },
             },
         },
-        "commands": {
-            "description": "Debug commands for thermostat",
-            "display_name": "Thermostat command",
-            "type": "group",
-        },
-        "file": {
-            "brief": "Command set for a thermostat",
-            "description": "Provides basic debug commands for a thermostat.  Allows for both imperial and metric units.",
-        },
         "temperature_units": {
             "description": "Units used for temperature",
             "display_name": "Temperature Units",
@@ -72,20 +72,32 @@ def test_enum_to_bytes():
             ],
         },
     }
-    command = {
-        "commands": {
-            "cmd_temperature_set": {
-                "temperature": 75,
-                "units": "f",
+
+
+struct_into_bytes_params = [
+    ({"commands": {"cmd_reset": {}}}, (b"\x01")),
+    (
+        {
+            "commands": {
+                "cmd_temperature_set": {
+                    "temperature": 75,
+                    "units": "f",
+                }
             }
-        }
-    }
-    result = struct_parse.struct_into_bytes(
-        definitions, command, endianess="big"
-    )
-    expected = (
-        b"\x02"
-        + int(75).to_bytes(length=2, byteorder="big", signed=True)
-        + b"\x01"
+        },
+        (
+            b"\x02"
+            + int(75).to_bytes(length=2, byteorder="big", signed=True)
+            + b"\x01"
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize("command, expected", struct_into_bytes_params)
+def test_element_into_bytes(command, expected):
+    definitions = example_definitions()
+    result = struct_parse.element_into_bytes(
+        command, definitions, endianness="big"
     )
     assert expected == result
