@@ -83,6 +83,7 @@ disable = [
     "missing-module-docstring",
     "too-few-public-methods",  # For dataclasses with no methods
     "duplicate-code",  # For code generation samples
+    "too-many-locals",  # The straight forward solutions to this lead to harder to read code
 ]
 
 [tool.pytest.ini_options]

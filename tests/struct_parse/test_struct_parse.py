@@ -52,6 +52,25 @@ def example_definitions():
                 },
             },
         },
+        "temperature_units": {
+            "description": "Units used for temperature",
+            "display_name": "Temperature Units",
+            "size": 1,
+            "type": "enum",
+            "values": [
+                {
+                    "label": "c",
+                    "value": 0,
+                    "display_name": "C",
+                    "description": "Degrees Celcius",
+                },
+                {
+                    "label": "f",
+                    "display_name": "F",
+                    "description": "Degrees Fahrenheit",
+                },
+            ],
+        },
         "cmd_label_thermostat": {
             "description": "Give the thermostat a name",
             "display_name": "Label thermostat",
@@ -72,22 +91,49 @@ def example_definitions():
                 },
             },
         },
-        "temperature_units": {
-            "description": "Units used for temperature",
-            "display_name": "Temperature Units",
-            "size": 1,
-            "type": "enum",
-            "values": [
+        "cmd_mode_set": {
+            "description": "Change thermostat mode",
+            "display_name": "Request a change in the thermostat mode",
+            "members": [
                 {
-                    "label": "c",
-                    "value": 0,
-                    "display_name": "C",
-                    "description": "Degrees Celcius",
+                    "name": "mode",
+                    "size": 1,
+                    "type": "thermostat_mode",
+                    "description": "Desired thermostat mode",
+                },
+            ],
+            "size": 1,
+            "type": "structure",
+            "groups": {
+                "commands": {
+                    "value": 4,
+                    "name": "mode_configuration",
+                },
+            },
+        },
+        "thermostat_mode": {
+            "display_name": "Thermostat Mode",
+            "description": "Mode configuration for thermostat control",
+            "type": "bit_field",
+            "size": 1,
+            "members": [
+                {
+                    "name": "heating_en",
+                    "start": 0,
+                    "type": "int",
+                    "description": "Heating is enabled",
                 },
                 {
-                    "label": "f",
-                    "display_name": "F",
-                    "description": "Degrees Fahrenheit",
+                    "name": "cooling_en",
+                    "start": 1,
+                    "type": "int",
+                    "description": "Cooling is enabled",
+                },
+                {
+                    "name": "fan_always_on",
+                    "start": 2,
+                    "type": "int",
+                    "description": "Fan is always on",
                 },
             ],
         },
@@ -134,6 +180,20 @@ struct_into_bytes_params = [
             }
         },
         (b"\x03" + "A very long room nam".encode("utf-8")),
+    ),
+    (
+        {
+            "commands": {
+                "cmd_mode_set": {
+                    "mode": {
+                        "heating_en": 0,
+                        "cooling_en": 1,
+                        "fan_always_on": 1,
+                    }
+                }
+            }
+        },
+        (b"\x04\x06"),
     ),
 ]
 
