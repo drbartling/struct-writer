@@ -1,5 +1,10 @@
 # struct-writer Change Log
 
+## 0.4.0
+
+### Change
+- Group definitions now require `size` attribute
+
 ## 0.3.1
 
 ### Features

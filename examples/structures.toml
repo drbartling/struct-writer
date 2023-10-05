@@ -6,6 +6,7 @@ description = 'Provides basic debug commands for a thermostat.  Allows for both 
 description = "Debug commands for thermostat"
 display_name = "Thermostat command"
 type = "group"
+size = 2
 
 [cmd_reset]
 description = "Request a software reset"

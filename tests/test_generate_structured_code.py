@@ -118,6 +118,7 @@ def test_render_group():
             "type": "group",
             "display_name": "My group",
             "description": "A group",
+            "size": 1,
         },
         "MY_grouped_struct": {
             "type": "structure",

@@ -1,6 +1,5 @@
 import json
 import logging
-import math
 import tomllib
 from pathlib import Path
 
@@ -78,7 +77,13 @@ def main(
                 out_file=output_file
             )
         )
-        s = render_definitions(definitions, templates)
+        try:
+            s = render_definitions(definitions, templates)
+        except Exception:
+            _logger.error(
+                "Failed to render code from file `%s`", input_definition
+            )
+            raise
         f.write(s)
         f.write(
             Template(templates["file"]["footer"]).safe_render(
@@ -240,7 +245,11 @@ def render_group(group_name, definitions, templates):
     if not group_elements:
         return ""
 
-    enum_size = int(math.log(len(group_elements), 256)) + 1
+    try:
+        enum_size = group["size"]
+    except KeyError:
+        _logger.error("Group `%s` is missing `size`", group_name)
+        raise
 
     group_enum = {
         "name": f'{group["name"]}_tag',
