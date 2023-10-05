@@ -205,3 +205,21 @@ def test_element_into_bytes(command, expected):
         command, definitions, endianness="big"
     )
     assert expected == result
+
+
+struct_into_bytes_params = [
+    (
+        (b""),
+        "cmd_reset",
+        {"cmd_reset": {}},
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "byte_data,type_name, expected", struct_into_bytes_params
+)
+def test_parse_bytes(byte_data, type_name, expected):
+    definitions = example_definitions()
+    result = struct_parse.parse_bytes(byte_data, type_name, definitions)
+    assert expected == result

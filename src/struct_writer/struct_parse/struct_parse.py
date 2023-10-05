@@ -126,3 +126,7 @@ def primitive_to_bytes(element, endianness, size):
             _logger.warning("Truncating string to %s", b_str)
         return primitive_to_bytes({"bytes": b_str}, endianness, size)
     raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover
+
+
+def parse_bytes(byte_data, type_name, definitions):
+    return {type_name: {}}
