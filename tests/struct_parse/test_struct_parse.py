@@ -121,7 +121,7 @@ def example_definitions():
                 {
                     "name": "heating_en",
                     "start": 0,
-                    "type": "int",
+                    "type": "uint",
                     "description": "Heating is enabled",
                 },
                 {
@@ -133,8 +133,26 @@ def example_definitions():
                 {
                     "name": "fan_always_on",
                     "start": 2,
-                    "type": "int",
+                    "type": "fan_state",
                     "description": "Fan is always on",
+                },
+            ],
+        },
+        "fan_state": {
+            "description": "Indicates how the fan should be operated",
+            "display_name": "Fan state",
+            "size": 1,
+            "type": "enum",
+            "values": [
+                {
+                    "label": "on_during_operation",
+                    "display_name": "On during operation",
+                    "description": "Fan is only on when actively heating or cooling",
+                },
+                {
+                    "label": "always_on",
+                    "display_name": "Always On",
+                    "description": "Fan is always on, even when heater or A/C are not engaged",
                 },
             ],
         },
@@ -189,7 +207,7 @@ struct_into_bytes_params = [
                     "mode": {
                         "heating_en": 0,
                         "cooling_en": 1,
-                        "fan_always_on": 1,
+                        "fan_always_on": "always_on",
                     }
                 }
             }
@@ -217,6 +235,11 @@ struct_into_bytes_params = [
         b"\x02\x00\x4B\x01",
         "commands",
         {"cmd_temperature_set": {"temperature": 75, "units": "f"}},
+    ),
+    (
+        b"\x06",
+        "thermostat_mode",
+        {"heating_en": 0, "cooling_en": 1, "fan_always_on": "always_on"},
     ),
 ]
 

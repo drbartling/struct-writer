@@ -1,5 +1,8 @@
 import logging
+import math
 from typing import Any
+
+from struct_writer import generate_structured_code
 
 _logger = logging.getLogger(__name__)
 
@@ -138,6 +141,10 @@ def parse_bytes(byte_data, type_name, definitions, endianness="big"):
             return parse_enum(byte_data, type_name, definitions, endianness)
         if "group" == definition_type:
             return parse_group(byte_data, type_name, definitions, endianness)
+        if "bit_field" == definition_type:
+            return parse_bit_field(
+                byte_data, type_name, definitions, endianness
+            )
     return parse_primitive(byte_data, type_name, endianness)
 
 
@@ -200,6 +207,30 @@ def parse_group(
                     )
                     return {element_name: parsed_element}
     raise ValueError(f"`{group_tag}` not found in group `{group_name}`")
+
+
+def parse_bit_field(
+    byte_data: bytes,
+    bit_field_name: str,
+    definitions: dict[str, Any],
+    endianness: str,
+):
+    definition = definitions[bit_field_name]
+    assert "bit_field" == definition["type"]
+
+    byte_value = int.from_bytes(byte_data, endianness, signed=False)
+    parsed_members = {}
+    for member in definition.get("members", []):
+        generate_structured_code.complete_bit_field_member(member)
+        mask = int("1" * member["bits"])
+        bits_value = byte_value >> member["start"]
+        bits_value: int = bits_value & mask
+        size = math.ceil(member["bits"] / 8.0)
+        masked_bytes = bits_value.to_bytes(length=size)
+        parsed_members[member["name"]] = parse_bytes(
+            masked_bytes, member["type"], definitions, endianness
+        )
+    return parsed_members
 
 
 def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
