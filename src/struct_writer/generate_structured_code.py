@@ -137,7 +137,7 @@ def render_structure(structure_name, definitions, templates):
         for member in members:
             try:
                 measured_size += member["size"]
-            except KeyError:
+            except KeyError:  # pragma: no cover
                 _logger.error("Failed to render structure `%s`", structure_name)
                 _logger.error(
                     "Member `%s` is missing `size` attriute", member["name"]
@@ -260,7 +260,7 @@ def render_group(group_name, definitions, templates):
 
     try:
         enum_size = group["size"]
-    except KeyError:
+    except KeyError:  # pragma: no cover
         _logger.error("Group `%s` is missing `size`", group_name)
         raise
 
