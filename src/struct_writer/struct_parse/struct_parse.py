@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
@@ -128,5 +129,86 @@ def primitive_to_bytes(element, endianness, size):
     raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover
 
 
-def parse_bytes(byte_data, type_name, definitions):
-    return {type_name: {}}
+def parse_bytes(byte_data, type_name, definitions, endianness="big"):
+    if definition := definitions.get(type_name):
+        definition_type = definition["type"]
+        if "structure" == definition_type:
+            return parse_struct(byte_data, type_name, definitions, endianness)
+        if "enum" == definition_type:
+            return parse_enum(byte_data, type_name, definitions, endianness)
+        if "group" == definition_type:
+            return parse_group(byte_data, type_name, definitions, endianness)
+    return parse_primitive(byte_data, type_name, endianness)
+
+
+def parse_struct(byte_data, struct_name, definitions, endianness):
+    definition = definitions[struct_name]
+    assert "structure" == definition["type"]
+    assert (
+        len(byte_data) == definition["size"]
+    ), f'Expected {definition["size"]} bytes for `{struct_name}`, found {len(byte_data)}'
+
+    members = definition.get("members", [])
+    parsed_members = {}
+    for member in members:
+        member_bytes = byte_data[: member["size"]]
+        byte_data = byte_data[member["size"] :]
+        parsed_members[member["name"]] = parse_bytes(
+            member_bytes, member["type"], definitions, endianness
+        )
+    return parsed_members
+
+
+def parse_enum(
+    byte_data: bytes,
+    enum_name: str,
+    definitions: dict[str, Any],
+    endianness: str,
+):
+    definition = definitions[enum_name]
+    assert "enum" == definition["type"]
+    values = definition["values"]
+    int_value = int.from_bytes(byte_data, endianness)
+    counter = 0
+    for v in values:
+        enum_value = v.get("value", counter)
+        counter = enum_value + 1
+        if int_value == enum_value:
+            return v["label"]
+    raise ValueError(f"`{int_value}` not found in enum `{enum_name}`")
+
+
+def parse_group(
+    byte_data: bytes,
+    group_name: str,
+    definitions: dict[str, Any],
+    endianness: str,
+):
+    definition = definitions[group_name]
+    assert "group" == definition["type"]
+
+    group_tag = byte_data[: definition["size"]]
+    byte_data = byte_data[definition["size"] :]
+    group_tag = int.from_bytes(group_tag, endianness)
+
+    for element_name, element_definition in definitions.items():
+        if element_groups := element_definition.get("groups"):
+            if element_group := element_groups.get(group_name):
+                if element_group["value"] == group_tag:
+                    parsed_element = parse_bytes(
+                        byte_data, element_name, definitions, endianness
+                    )
+                    return {element_name: parsed_element}
+    raise ValueError(f"`{group_tag}` not found in group `{group_name}`")
+
+
+def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
+    if "int" == type_name:
+        return int.from_bytes(byte_data, endianness, signed=True)
+    if "uint" == type_name:
+        return int.from_bytes(byte_data, endianness, signed=False)
+    if "bytes" == type_name:
+        pass
+    if "str" == type_name:
+        pass
+    raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover

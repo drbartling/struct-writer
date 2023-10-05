@@ -13,6 +13,7 @@ def example_definitions():
             "description": "Debug commands for thermostat",
             "display_name": "Thermostat command",
             "type": "group",
+            "size": 1,
         },
         "cmd_reset": {
             "description": "Request a software reset",
@@ -208,10 +209,14 @@ def test_element_into_bytes(command, expected):
 
 
 struct_into_bytes_params = [
+    ((b""), "cmd_reset", {}),
+    (b"\x00", "temperature_units", "c"),
+    (b"\x01", "temperature_units", "f"),
+    (b"\x00\x4B\x01", "cmd_temperature_set", {"temperature": 75, "units": "f"}),
     (
-        (b""),
-        "cmd_reset",
-        {"cmd_reset": {}},
+        b"\x02\x00\x4B\x01",
+        "commands",
+        {"cmd_temperature_set": {"temperature": 75, "units": "f"}},
     ),
 ]
 
