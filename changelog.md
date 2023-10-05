@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+### Features
+- Assert structures' size matches the total of the member sizes
+
 ### Change
 - Group definitions now require `size` attribute
 

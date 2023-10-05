@@ -129,10 +129,20 @@ def render_structure(structure_name, definitions, templates):
     structure = definitions[structure_name]
     assert structure["type"] == "structure"
     structure["name"] = structure_name
+    expected_size = structure["size"]
+    measured_size = 0
     s = ""
 
     if members := structure.get("members"):
         for member in members:
+            try:
+                measured_size += member["size"]
+            except KeyError:
+                _logger.error("Failed to render structure `%s`", structure_name)
+                _logger.error(
+                    "Member `%s` is missing `size` attriute", member["name"]
+                )
+                raise
             member_name = member["type"]
             if member_name in definitions:
                 s += render_definition(member_name, definitions, templates)
@@ -145,6 +155,9 @@ def render_structure(structure_name, definitions, templates):
         structure=structure
     )
 
+    assert (
+        expected_size == measured_size
+    ), f"Structure `{structure_name}` size is {expected_size}, but member sizes total {measured_size}"
     return s
 
 
@@ -309,8 +322,9 @@ def render_group(group_name, definitions, templates):
             "size": element["size"],
         }
         group_union["members"].append(union_member)
+    group_union["size"] = max(m["size"] for m in group_union["members"])
     group_struct["members"].append(group_union)
-    size = group_enum["size"] + max(m["size"] for m in group_union["members"])
+    size = group_enum["size"] + group_union["size"]
     group_struct["size"] = size
 
     definitions[group_struct["name"]] = group_struct
