@@ -3,6 +3,7 @@
 ## 0.4.0
 
 ### Features
+- Convert from bytes to json using provided definitions
 - Assert structures' size matches the total of the member sizes
 
 ### Change
