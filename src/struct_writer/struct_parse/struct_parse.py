@@ -239,7 +239,10 @@ def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
     if "uint" == type_name:
         return int.from_bytes(byte_data, endianness, signed=False)
     if "bytes" == type_name:
-        pass
+        return (
+            R" ".join([f"{b:02X}" for b in byte_data])
+            + f" (len={len(byte_data)})"
+        )
     if "str" == type_name:
-        pass
+        return byte_data.decode("utf-8").strip("\x00")
     raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover

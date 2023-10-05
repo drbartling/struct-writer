@@ -1,5 +1,10 @@
 # struct-writer Change Log
 
+## 0.4.1
+
+### Fixes
+- Handle bytes and str data types when parsing bytes
+
 ## 0.4.0
 
 ### Features
