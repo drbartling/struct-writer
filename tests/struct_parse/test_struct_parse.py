@@ -251,3 +251,75 @@ def test_parse_bytes(byte_data, type_name, expected):
     definitions = example_definitions()
     result = struct_parse.parse_bytes(byte_data, type_name, definitions)
     assert expected == result
+
+
+def test_parse_bit_field_enums():
+    definitions = {
+        "a_bit_field": {
+            "display_name": "",
+            "description": "",
+            "type": "bit_field",
+            "size": 2,
+            "members": [
+                {
+                    "name": "1",
+                    "start": 0,
+                    "bits": 3,
+                    "type": "an_enum",
+                    "description": "",
+                },
+                {
+                    "name": "2",
+                    "start": 3,
+                    "bits": 3,
+                    "type": "an_enum",
+                    "description": "",
+                },
+                {
+                    "name": "3",
+                    "start": 6,
+                    "bits": 3,
+                    "type": "an_enum",
+                    "description": "",
+                },
+                {
+                    "name": "4",
+                    "start": 9,
+                    "bits": 3,
+                    "type": "an_enum",
+                    "description": "",
+                },
+            ],
+        },
+        "an_enum": {
+            "display_name": "",
+            "description": "",
+            "type": "enum",
+            "size": 1,
+            "values": [
+                {"label": "a", "display_name": "", "description": ""},
+                {"label": "b", "display_name": "", "description": ""},
+                {"label": "c", "display_name": "", "description": ""},
+                {"label": "d", "display_name": "", "description": ""},
+                {"label": "e", "display_name": "", "description": ""},
+                {"label": "f", "display_name": "", "description": ""},
+            ],
+        },
+    }
+    data = {
+        "a_bit_field": {
+            "1": "a",
+            "2": "b",
+            "3": "c",
+            "4": "d",
+        }
+    }
+    byte_data = struct_parse.element_into_bytes(data, definitions)
+    result = struct_parse.parse_bytes(byte_data, "a_bit_field", definitions)
+    expected = {
+        "1": "a",
+        "2": "b",
+        "3": "c",
+        "4": "d",
+    }
+    assert expected == result

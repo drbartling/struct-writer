@@ -1,5 +1,11 @@
 # struct-writer Change Log
 
+## 0.4.2
+
+### Fixes
+- Generate bit-mask correctly when parsing bit-fields
+
+
 ## 0.4.1
 
 ### Fixes

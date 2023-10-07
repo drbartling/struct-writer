@@ -222,7 +222,7 @@ def parse_bit_field(
     parsed_members = {}
     for member in definition.get("members", []):
         generate_structured_code.complete_bit_field_member(member)
-        mask = int("1" * member["bits"])
+        mask = int("1" * member["bits"], 2)
         bits_value = byte_value >> member["start"]
         bits_value: int = bits_value & mask
         size = math.ceil(member["bits"] / 8.0)
