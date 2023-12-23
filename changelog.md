@@ -1,5 +1,10 @@
 # struct-writer Change Log
 
+## 0.4.3
+
+### Change
+- Remove the _u from the group union structure name
+
 ## 0.4.2
 
 ### Fixes

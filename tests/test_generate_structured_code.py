@@ -151,15 +151,15 @@ STATIC_ASSERT_TYPE_SIZE(MY_grouped_struct_t, 0);
 
 /// My group
 /// A group
-typedef struct MY_group_u_s{
+typedef struct MY_group_s{
 /// MY_group tag
 MY_group_tag_t tag;
 union {
 /// A struct
 MY_grouped_struct_t grouped_struct;
 } value;
-} MY_group_u_t;
-STATIC_ASSERT_TYPE_SIZE(MY_group_u_t, 1);
+} MY_group_t;
+STATIC_ASSERT_TYPE_SIZE(MY_group_t, 1);
 
 """
 
