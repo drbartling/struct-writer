@@ -58,7 +58,7 @@ rendered = {"file"}
     ),
 )
 def main(
-    input_definition: Path, template_files: Path, output_file: Path
+    input_definition: Path, template_files: list[Path], output_file: Path
 ):  # pragma: no cover
     definitions = load_markup_file(input_definition)
     templates = default_template()
@@ -292,7 +292,7 @@ def render_group(group_name, definitions, templates):
         s += render_definition(element_name, definitions, templates)
 
     group_struct = {
-        "name": f'{group["name"]}_u',
+        "name": f'{group["name"]}',
         "display_name": group["display_name"],
         "description": group["description"],
         "type": "structure",
@@ -328,6 +328,7 @@ def render_group(group_name, definitions, templates):
     group_struct["size"] = size
 
     definitions[group_struct["name"]] = group_struct
+    rendered.remove(group_struct["name"])
     s += render_definition(group_struct["name"], definitions, templates)
 
     return s
