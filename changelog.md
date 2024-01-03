@@ -1,5 +1,10 @@
 # struct-writer Change Log
 
+## 0.4.4
+
+### Features
+- Support python 3.11 - 3.12
+
 ## 0.4.3
 
 ### Change
