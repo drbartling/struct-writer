@@ -5,6 +5,10 @@
 ### Features
 - Support python 3.11 - 3.12
 
+### Fixes
+- Handle enums with negative values
+- Support signed integers in bitfields
+
 ## 0.4.3
 
 ### Change

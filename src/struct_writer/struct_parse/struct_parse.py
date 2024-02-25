@@ -77,8 +77,9 @@ def enum_into_bytes(element, definitions, endianness):
             b = int(counter).to_bytes(
                 length=enum_definition["size"],
                 byteorder=endianness,
-                signed=False,
+                signed=enum_definition.get("signed", False),
             )
+            assert parse_enum(b, enum_name, definitions, endianness)
         counter += 1
 
     return b
@@ -91,6 +92,7 @@ def bit_field_into_bytes(element, definitions, endianness):
 
     raw_value = 0
     for member_definition in bit_field_definition.get("members", []):
+        generate_structured_code.complete_bit_field_member(member_definition)
         member_name = member_definition["name"]
         member_value = bit_field_members[member_name]
         member_type = member_definition["type"]
@@ -100,6 +102,8 @@ def bit_field_into_bytes(element, definitions, endianness):
             member, definitions, endianness, member_size
         )
         v = int.from_bytes(byte_value, endianness)
+        mask = int("1" * member_definition["bits"], 2)
+        v = v & mask
         v = v << member_definition["start"]
 
         raw_value += v
@@ -175,7 +179,8 @@ def parse_enum(
     definition = definitions[enum_name]
     assert "enum" == definition["type"]
     values = definition["values"]
-    int_value = int.from_bytes(byte_data, endianness)
+    is_signed: bool = definition.get("signed", False)
+    int_value = int.from_bytes(byte_data, endianness, signed=is_signed)
     counter = 0
     for v in values:
         enum_value = v.get("value", counter)
@@ -218,15 +223,25 @@ def parse_bit_field(
     definition = definitions[bit_field_name]
     assert "bit_field" == definition["type"]
 
-    byte_value = int.from_bytes(byte_data, endianness, signed=False)
+    byte_value: int = int.from_bytes(byte_data, endianness, signed=False)
+
     parsed_members = {}
     for member in definition.get("members", []):
+        if member_definition := definitions.get(member["type"]):
+            is_signed = member_definition.get("signed", False)
+        else:
+            is_signed = "int" == member["type"]
         generate_structured_code.complete_bit_field_member(member)
         mask = int("1" * member["bits"], 2)
         bits_value = byte_value >> member["start"]
         bits_value: int = bits_value & mask
+        if is_signed:
+            msb = int("1" + "0" * (member["bits"] - 1), 2)
+            is_negative = bits_value & msb
+            if is_negative:
+                bits_value = bits_value | (~mask)
         size = math.ceil(member["bits"] / 8.0)
-        masked_bytes = bits_value.to_bytes(length=size)
+        masked_bytes = bits_value.to_bytes(length=size, signed=is_signed)
         parsed_members[member["name"]] = parse_bytes(
             masked_bytes, member["type"], definitions, endianness
         )
