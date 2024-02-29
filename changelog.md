@@ -1,5 +1,8 @@
 # struct-writer Change Log
 
+## 0.4.6
+- Fall back to returning bytes when we fail to parse data
+
 ## 0.4.4
 
 ### Features
