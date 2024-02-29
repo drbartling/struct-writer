@@ -137,19 +137,27 @@ def primitive_to_bytes(element, endianness, size):
 
 
 def parse_bytes(byte_data, type_name, definitions, endianness="big"):
-    if definition := definitions.get(type_name):
-        definition_type = definition["type"]
-        if "structure" == definition_type:
-            return parse_struct(byte_data, type_name, definitions, endianness)
-        if "enum" == definition_type:
-            return parse_enum(byte_data, type_name, definitions, endianness)
-        if "group" == definition_type:
-            return parse_group(byte_data, type_name, definitions, endianness)
-        if "bit_field" == definition_type:
-            return parse_bit_field(
-                byte_data, type_name, definitions, endianness
-            )
-    return parse_primitive(byte_data, type_name, endianness)
+    try:
+        if definition := definitions.get(type_name):
+            definition_type = definition["type"]
+            if "structure" == definition_type:
+                return parse_struct(
+                    byte_data, type_name, definitions, endianness
+                )
+            if "enum" == definition_type:
+                return parse_enum(byte_data, type_name, definitions, endianness)
+            if "group" == definition_type:
+                return parse_group(
+                    byte_data, type_name, definitions, endianness
+                )
+            if "bit_field" == definition_type:
+                return parse_bit_field(
+                    byte_data, type_name, definitions, endianness
+                )
+        return parse_primitive(byte_data, type_name, endianness)
+    except Exception as _e:  # pylint: disable=broad-exception-caught
+        _logger.exception("e")
+        return parse_primitive(byte_data, "bytes", endianness)
 
 
 def parse_struct(byte_data, struct_name, definitions, endianness):
