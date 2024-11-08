@@ -3,28 +3,28 @@
 minimum_pre_commit_version: 2.15.0
 repos:
 - repo: https://github.com/pycqa/isort
-  rev: 5.12.0
+  rev: 5.13.2
   hooks:
   - id: isort
     name: isort (python)
     args: [--profile, black, --filter-files]
-    stages: [commit]
+    stages: [pre-commit]
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.10.0
+  rev: v2.14.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix]
-    stages: [commit]
+    stages: [pre-commit]
   - id: pretty-format-toml
     args: [--autofix, --no-sort, --trailing-commas, --indent, '4']
-    stages: [commit]
+    stages: [pre-commit]
 - repo: https://github.com/psf/black
-  rev: 23.9.1
+  rev: 24.10.0
   hooks:
   - id: black
-    stages: [commit]
+    stages: [pre-commit]
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
+  rev: v5.0.0
   hooks:
   - id: check-added-large-files
   - id: check-json
@@ -42,11 +42,11 @@ repos:
     language: system
     types: [python]
     pass_filenames: false
-    stages: [commit]
+    stages: [pre-commit]
   - id: pylint
     name: pylint
     entry: poetry run pylint
     args: [-rn]
     language: system
     types: [python]
-    stages: [commit]
+    stages: [pre-commit]
