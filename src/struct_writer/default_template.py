@@ -57,7 +57,7 @@ default = '''
 ${member.type}_t ${member.name};
 '''
 empty = '''
-/// Structure is intentionally empty (zero sized)
+/// Structure is intentially empty (zero sized)
 uint8_t empty[0];
 '''
 int = '''
@@ -67,6 +67,22 @@ int${member.size*8}_t ${member.name};
 uint = '''
 /// ${member.description}
 uint${member.size*8}_t ${member.name};
+'''
+void_pointer = '''
+/// ${member.description}
+void * ${member.name};
+'''
+bool = '''
+/// ${member.description}
+bool ${member.name}[${member.size}];
+'''
+bytes = '''
+/// ${member.description}
+uint8_t ${member.name}[${member.size}];
+'''
+str = '''
+/// ${member.description}
+char ${member.name}[${member.size}];
 '''
 union.footer = '''
 } ${union.name};
