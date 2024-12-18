@@ -21,8 +21,9 @@ rendered = {"file"}
 @click.command()
 @click.option(
     "-i",
-    "--input-definition",
+    "--input-definitions",
     prompt=True,
+    multiple=True,
     type=click.Path(
         exists=True,
         file_okay=True,
@@ -58,9 +59,11 @@ rendered = {"file"}
     ),
 )
 def main(
-    input_definition: Path, template_files: list[Path], output_file: Path
+    input_definitions: list[Path], template_files: list[Path], output_file: Path
 ):  # pragma: no cover
-    definitions = load_markup_file(input_definition)
+    definitions = {}
+    for input_definition in input_definitions:
+        definitions = templating.merge(definitions, load_markup_file(input_definition))
     templates = default_template()
     for template_file in template_files:
         templates = templating.merge(templates, load_markup_file(template_file))
@@ -69,7 +72,7 @@ def main(
     with output_file.open("w", encoding="utf-8") as f:
         f.write(
             Template(templates["file"]["description"]).safe_render(
-                file=definitions["file"]
+                file=definitions.get("file", "")
             )
         )
         f.write(
