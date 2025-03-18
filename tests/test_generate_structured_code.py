@@ -124,7 +124,15 @@ def test_render_group():
             "type": "structure",
             "display_name": "My struct",
             "description": "A struct",
-            "size": 0,
+            "size": 1,
+            "members": [
+                {
+                    "name": "foo",
+                    "size": 1,
+                    "type": "int",
+                    "description": "A foo walks into a bar",
+                },
+            ],
             "groups": {
                 "MY_group": {"value": 0, "name": "grouped_struct"},
             },
@@ -144,22 +152,28 @@ STATIC_ASSERT_TYPE_SIZE(MY_group_tag_t, 1);
 /// My struct
 /// A struct
 typedef struct MY_grouped_struct_s{
-/// Structure is intentionally empty (zero sized)
-uint8_t empty[0];
+/// A foo walks into a bar
+int8_t foo;
 } MY_grouped_struct_t;
-STATIC_ASSERT_TYPE_SIZE(MY_grouped_struct_t, 0);
+STATIC_ASSERT_TYPE_SIZE(MY_grouped_struct_t, 1);
+
+/// My group
+/// A group
+typedef union MY_group_union_u{
+/// A struct
+MY_grouped_struct_t grouped_struct;
+} MY_group_union_t;
+STATIC_ASSERT_TYPE_SIZE(MY_group_union_t, 1);
 
 /// My group
 /// A group
 typedef struct MY_group_s{
 /// MY_group tag
 MY_group_tag_t tag;
-union {
-/// A struct
-MY_grouped_struct_t grouped_struct;
-} value;
+/// Union of group structures
+MY_group_union_t value;
 } MY_group_t;
-STATIC_ASSERT_TYPE_SIZE(MY_group_t, 1);
+STATIC_ASSERT_TYPE_SIZE(MY_group_t, 2);
 
 """
 

@@ -14,7 +14,6 @@ description = '''
 * @note This file is auto-generated using structured_api
 */
 '''
-
 header = '''
 #ifndef ${out_file.stem.upper()}_H_
 #define ${out_file.stem.upper()}_H_
@@ -26,7 +25,6 @@ extern "C" {
 #include <stdint.h>
 
 '''
-
 footer = '''
 #ifdef __cplusplus
 }
@@ -37,6 +35,19 @@ footer = '''
 [group]
 tag_name = '${group.name}_tag'
 
+[union]
+type_name = '${union.name}_t'
+header = '''
+/// ${union.display_name}
+/// ${union.description}
+typedef union ${union.name}_u{
+'''
+footer = '''
+} ${union.name}_t;
+STATIC_ASSERT_TYPE_SIZE(${union.name}_t, ${union.size});
+
+'''
+
 [structure]
 type_name = '${structure.name}_t'
 header = '''
@@ -44,7 +55,6 @@ header = '''
 /// ${structure.description}
 typedef struct ${structure.name}_s{
 '''
-
 footer = '''
 } ${structure.name}_t;
 STATIC_ASSERT_TYPE_SIZE(${structure.name}_t, ${structure.size});
@@ -57,7 +67,7 @@ default = '''
 ${member.type}_t ${member.name};
 '''
 empty = '''
-/// Structure is intentially empty (zero sized)
+/// Structure is intentionally empty (zero sized)
 uint8_t empty[0];
 '''
 int = '''
@@ -67,28 +77,6 @@ int${member.size*8}_t ${member.name};
 uint = '''
 /// ${member.description}
 uint${member.size*8}_t ${member.name};
-'''
-void_pointer = '''
-/// ${member.description}
-void * ${member.name};
-'''
-bool = '''
-/// ${member.description}
-bool ${member.name}[${member.size}];
-'''
-bytes = '''
-/// ${member.description}
-uint8_t ${member.name}[${member.size}];
-'''
-str = '''
-/// ${member.description}
-char ${member.name}[${member.size}];
-'''
-union.footer = '''
-} ${union.name};
-'''
-union.header = '''
-union {
 '''
 
 [enum]

@@ -63,7 +63,9 @@ def main(
 ):  # pragma: no cover
     definitions = {}
     for input_definition in input_definitions:
-        definitions = templating.merge(definitions, load_markup_file(input_definition))
+        definitions = templating.merge(
+            definitions, load_markup_file(input_definition)
+        )
     templates = default_template()
     for template_file in template_files:
         templates = templating.merge(templates, load_markup_file(template_file))
@@ -84,7 +86,7 @@ def main(
             s = render_definitions(definitions, templates)
         except Exception:
             _logger.error(
-                "Failed to render code from file `%s`", input_definition
+                "Failed to render code from files `%s`", input_definitions
             )
             raise
         f.write(s)
@@ -118,6 +120,8 @@ def render_definition(element_name, definitions, templates):
     s = ""
     if "structure" == definition["type"]:
         s += render_structure(element_name, definitions, templates)
+    if "union" == definition["type"]:
+        s += render_union(element_name, definitions, templates)
     if "enum" == definition["type"]:
         s += render_enum(element_name, definitions, templates)
     if "group" == definition["type"]:
@@ -126,6 +130,70 @@ def render_definition(element_name, definitions, templates):
         s += render_bit_field(element_name, definitions, templates)
 
     return s
+
+
+def render_union(union_name, definitions, templates):
+    union = definitions[union_name]
+    assert union["type"] == "union"
+    union["name"] = union_name
+    expected_size = union["size"]
+    measured_size = 0
+    s = ""
+
+    if members := union.get("members"):
+        for member in members:
+            try:
+                measured_size += member["size"]
+            except KeyError:  # pragma: no cover
+                _logger.error("Failed to render structure `%s`", union_name)
+                _logger.error(
+                    "Member `%s` is missing `size` attriute", member["name"]
+                )
+                raise
+            member_name = member["type"]
+            if member_name in definitions:
+                s += render_definition(member_name, definitions, templates)
+
+    s += Template(templates["union"]["header"]).safe_render(union=union)
+    s += render_union_members(union_name, definitions, templates)
+    s += Template(templates["union"]["footer"]).safe_render(union=union)
+
+    assert (
+        expected_size == measured_size
+    ), f"Structure `{union_name}` size is {expected_size}, but member sizes total {measured_size}"
+    return s
+
+
+def render_union_members(union_name, definitions, templates):
+    union = definitions.get(union_name)
+    s = ""
+    assert union["type"] == "union"
+    if members := union.get("members"):
+        for member in members:
+            s += render_union_member(member, templates)
+    else:
+        try:
+            s = templates["union"]["members"]["empty"]
+        except KeyError:
+            s = templates["structure"]["members"]["empty"]
+    return s
+
+
+def render_union_member(member, templates):
+    try:
+        member_template = templates["union"]["members"]["type"]
+    except KeyError:
+        pass
+    else:
+        return Template(member_template).safe_render(member=member)
+
+    if member_template := templates["structure"]["members"].get(member["type"]):
+        return Template(member_template).safe_render(member=member)
+    try:
+        member_template = templates["union"]["members"]["default"]
+    except KeyError:
+        member_template = templates["structure"]["members"]["default"]
+    return Template(member_template).safe_render(member=member)
 
 
 def render_structure(structure_name, definitions, templates):
@@ -178,27 +246,10 @@ def render_structure_members(structure_name, definitions, templates):
 
 
 def render_structure_member(member, templates):
-    if "union" == member["type"]:
-        return render_structure_union(member, templates)
     if member_template := templates["structure"]["members"].get(member["type"]):
         return Template(member_template).safe_render(member=member)
     member_template = templates["structure"]["members"]["default"]
     return Template(member_template).safe_render(member=member)
-
-
-def render_structure_union(union, templates):
-    s = ""
-    s += Template(
-        templates["structure"]["members"]["union"]["header"]
-    ).safe_render(union=union)
-
-    for member in union["members"]:
-        s += render_structure_member(member, templates)
-
-    s += Template(
-        templates["structure"]["members"]["union"]["footer"]
-    ).safe_render(union=union)
-    return s
 
 
 def render_enum(element_name, definitions, templates):
@@ -294,25 +345,11 @@ def render_group(group_name, definitions, templates):
     for element_name in group_elements:
         s += render_definition(element_name, definitions, templates)
 
-    group_struct = {
-        "name": f'{group["name"]}',
+    group_union = {
+        "name": f'{group["name"]}_union',
+        "type": "union",
         "display_name": group["display_name"],
         "description": group["description"],
-        "type": "structure",
-        "size": -1,
-    }
-    group_struct["members"] = [
-        {
-            "name": "tag",
-            "size": group_enum["size"],
-            "type": group_enum["name"],
-            "description": group_enum["display_name"],
-        }
-    ]
-    group_union = {
-        "name": "value",
-        "type": "union",
-        "description": "",
         "members": [],
     }
     for element_name, element in group_elements.items():
@@ -326,8 +363,32 @@ def render_group(group_name, definitions, templates):
         }
         group_union["members"].append(union_member)
     group_union["size"] = max(m["size"] for m in group_union["members"])
-    group_struct["members"].append(group_union)
+    definitions[group_union["name"]] = group_union
+    s += render_definition(group_union["name"], definitions, templates)
+
+    group_struct = {
+        "name": f'{group["name"]}',
+        "display_name": group["display_name"],
+        "description": group["description"],
+        "type": "structure",
+        "size": -1,
+    }
+    group_struct["members"] = [
+        {
+            "name": "tag",
+            "size": group_enum["size"],
+            "type": group_enum["name"],
+            "description": group_enum["display_name"],
+        },
+        {
+            "name": "value",
+            "size": group_union["size"],
+            "type": group_union["name"],
+            "description": "Union of group structures",
+        },
+    ]
     size = group_enum["size"] + group_union["size"]
+    print(f'{size} = {group_enum["size"]} + {group_union["size"]}')
     group_struct["size"] = size
 
     definitions[group_struct["name"]] = group_struct
