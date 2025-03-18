@@ -137,13 +137,13 @@ def render_union(union_name, definitions, templates):
     assert union["type"] == "union"
     union["name"] = union_name
     expected_size = union["size"]
-    measured_size = 0
+    measured_size = -1
     s = ""
 
     if members := union.get("members"):
         for member in members:
             try:
-                measured_size += member["size"]
+                measured_size = max(measured_size, member["size"])
             except KeyError:  # pragma: no cover
                 _logger.error("Failed to render structure `%s`", union_name)
                 _logger.error(

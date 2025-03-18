@@ -1,5 +1,8 @@
 # struct-writer Change Log
 
+## 0.4.10
+- Fix union size calculation
+
 ## 0.4.9
 - Seperate out union definition from the group structure to enable support for languages that do not allow anonymous unions embedded in the structure.
 

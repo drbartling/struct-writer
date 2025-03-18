@@ -120,7 +120,7 @@ def test_render_group():
             "description": "A group",
             "size": 1,
         },
-        "MY_grouped_struct": {
+        "MY_grouped_int": {
             "type": "structure",
             "display_name": "My struct",
             "description": "A struct",
@@ -134,7 +134,24 @@ def test_render_group():
                 },
             ],
             "groups": {
-                "MY_group": {"value": 0, "name": "grouped_struct"},
+                "MY_group": {"value": 0, "name": "grouped_int"},
+            },
+        },
+        "MY_grouped_uint": {
+            "type": "structure",
+            "display_name": "My struct",
+            "description": "A struct",
+            "size": 1,
+            "members": [
+                {
+                    "name": "bar",
+                    "size": 1,
+                    "type": "uint",
+                    "description": "A bar walks into a foo",
+                },
+            ],
+            "groups": {
+                "MY_group": {"value": 1, "name": "grouped_uint"},
             },
         },
     }
@@ -144,24 +161,36 @@ def test_render_group():
 /// MY_group tag
 /// Enumeration for MY_group tag
 typedef enum MY_group_tag_e{
-/// @see MY_grouped_struct_t
-MY_group_tag_grouped_struct = 0x0,
+/// @see MY_grouped_int_t
+MY_group_tag_grouped_int = 0x0,
+/// @see MY_grouped_uint_t
+MY_group_tag_grouped_uint = 0x1,
 } MY_group_tag_t;
 STATIC_ASSERT_TYPE_SIZE(MY_group_tag_t, 1);
 
 /// My struct
 /// A struct
-typedef struct MY_grouped_struct_s{
+typedef struct MY_grouped_int_s{
 /// A foo walks into a bar
 int8_t foo;
-} MY_grouped_struct_t;
-STATIC_ASSERT_TYPE_SIZE(MY_grouped_struct_t, 1);
+} MY_grouped_int_t;
+STATIC_ASSERT_TYPE_SIZE(MY_grouped_int_t, 1);
+
+/// My struct
+/// A struct
+typedef struct MY_grouped_uint_s{
+/// A bar walks into a foo
+uint8_t bar;
+} MY_grouped_uint_t;
+STATIC_ASSERT_TYPE_SIZE(MY_grouped_uint_t, 1);
 
 /// My group
 /// A group
 typedef union MY_group_union_u{
 /// A struct
-MY_grouped_struct_t grouped_struct;
+MY_grouped_int_t grouped_int;
+/// A struct
+MY_grouped_uint_t grouped_uint;
 } MY_group_union_t;
 STATIC_ASSERT_TYPE_SIZE(MY_group_union_t, 1);
 
@@ -176,7 +205,6 @@ MY_group_union_t value;
 STATIC_ASSERT_TYPE_SIZE(MY_group_t, 2);
 
 """
-
     assert expected == result
 
 
