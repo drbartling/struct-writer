@@ -388,7 +388,6 @@ def render_group(group_name, definitions, templates):
         },
     ]
     size = group_enum["size"] + group_union["size"]
-    print(f'{size} = {group_enum["size"]} + {group_union["size"]}')
     group_struct["size"] = size
 
     definitions[group_struct["name"]] = group_struct

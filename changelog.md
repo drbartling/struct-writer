@@ -1,5 +1,10 @@
 # struct-writer Change Log
 
+## 0.4.11
+
+### Fixes
+- Remove debug print
+
 ## 0.4.10
 - Fix union size calculation
 
