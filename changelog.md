@@ -2,8 +2,7 @@
 
 ## 0.4.11
 
-### Fixes
-- Remove debug print
+- Revert back to 0.4.8 functionality
 
 ## 0.4.10
 - Fix union size calculation

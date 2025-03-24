@@ -30,19 +30,6 @@ footer = '''
 [group]
 tag_name = '${group.name}_tag'
 
-[union]
-type_name = '${union.name}_t'
-header = '''
-/// ${union.display_name}
-/// ${union.description}
-typedef union ${union.name}_u{
-'''
-footer = '''
-} ${union.name}_t;
-STATIC_ASSERT_TYPE_SIZE(${union.name}_t, ${union.size});
-
-'''
-
 [structure]
 type_name = '${structure.name}_t'
 header = '''
@@ -72,6 +59,12 @@ int${member.size*8}_t ${member.name};
 uint = '''
 /// ${member.description}
 uint${member.size*8}_t ${member.name};
+'''
+union.footer = '''
+} ${union.name};
+'''
+union.header = '''
+union {
 '''
 
 [enum]
