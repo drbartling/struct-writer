@@ -70,23 +70,28 @@ def main(
     for template_file in template_files:
         templates = templating.merge(templates, load_markup_file(template_file))
 
-    s = ""
-    s += Template(templates["file"]["description"]).safe_render(
-        file=definitions.get("file", "")
-    )
-    s += Template(templates["file"]["header"]).safe_render(out_file=output_file)
     try:
-        s = render_definitions(definitions, templates)
+        s = render_file(definitions, templates, output_file)
     except Exception:
         _logger.error(
             "Failed to render code from file(s) `%s`", input_definitions
         )
         raise
-    s += Template(templates["file"]["footer"]).safe_render(out_file=output_file)
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", encoding="utf-8") as f:
         f.write(s)
+
+
+def render_file(definitions, templates, output_file) -> str:
+    s = ""
+    s += Template(templates["file"]["description"]).safe_render(
+        file=definitions.get("file", "")
+    )
+    s += Template(templates["file"]["header"]).safe_render(out_file=output_file)
+    s = render_definitions(definitions, templates)
+    s += Template(templates["file"]["footer"]).safe_render(out_file=output_file)
+    return s
 
 
 def render_definitions(definitions, templates):
