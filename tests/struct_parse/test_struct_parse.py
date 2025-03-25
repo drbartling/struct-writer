@@ -230,9 +230,9 @@ struct_into_bytes_params = [
     ((b""), "cmd_reset", {}),
     (b"\x00", "temperature_units", "c"),
     (b"\x01", "temperature_units", "f"),
-    (b"\x00\x4B\x01", "cmd_temperature_set", {"temperature": 75, "units": "f"}),
+    (b"\x00\x4b\x01", "cmd_temperature_set", {"temperature": 75, "units": "f"}),
     (
-        b"\x02\x00\x4B\x01",
+        b"\x02\x00\x4b\x01",
         "commands",
         {"cmd_temperature_set": {"temperature": 75, "units": "f"}},
     ),
