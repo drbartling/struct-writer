@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from struct_writer import default_template, generate_structured_code
 
 
@@ -341,5 +343,42 @@ MY_power_t power:1;
 } MY_field2_t;
 STATIC_ASSERT_TYPE_SIZE(MY_field2_t, 2);
 
+"""
+    assert expected == result
+
+
+def test_render_empty_file():
+    definitions = {
+        "file": {
+            "brief": "A brief file description",
+            "description": "Longer prose describing what to find in the file",
+        },
+    }
+    template = default_template.default_template()
+    result = generate_structured_code.render_file(
+        definitions, template, Path("my_file.h")
+    )
+    expected = """\
+/**
+* @file
+* @brief A brief file description
+*
+* Longer prose describing what to find in the file
+*
+* @note This file is auto-generated using struct-writer
+*/
+#ifndef MY_FILE_H_
+#define MY_FILE_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <static_assert.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+}
+#endif
+#endif // MY_FILE_H_
 """
     assert expected == result

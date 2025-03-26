@@ -89,7 +89,7 @@ def render_file(definitions, templates, output_file) -> str:
         file=definitions.get("file", "")
     )
     s += Template(templates["file"]["header"]).safe_render(out_file=output_file)
-    s = render_definitions(definitions, templates)
+    s += render_definitions(definitions, templates)
     s += Template(templates["file"]["footer"]).safe_render(out_file=output_file)
     return s
 

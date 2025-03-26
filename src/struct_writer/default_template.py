@@ -11,7 +11,7 @@ description = '''
 *
 * ${file.description}
 *
-* @note This file is auto-generated using structured_api
+* @note This file is auto-generated using struct-writer
 */
 '''
 
