@@ -35,3 +35,15 @@ values = [
     {label = "c", value = 0, display_name = "C", description = "Degrees Celsius"},
     {label = "f", display_name = "F", description = "Degrees Fahrenheit"},
 ]
+
+[hvac_state]
+description = "State flags for HVAC"
+display_name = "HVAC State"
+type = "bit_field"
+size = 1
+members = [
+    {name = "fan_enabled", start = 0, bits = 1, type = "bool", description = "Set to true when fan is enabled"},
+    {name = "ac_enabled", start = 2, bits = 1, type = "bool", description = "Set to true when air conditioning is enabled"},
+    {name = "heat_enabled", start = 3, bits = 1, type = "bool", description = "Set to true when heater is enabled"},
+    {name = "units", start = 4, bits = 1, type = "temperature_units", description = "Units used in thermostat"},
+]
