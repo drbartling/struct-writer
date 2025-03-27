@@ -32,6 +32,6 @@ display_name = "Temperature Units"
 size = 1
 type = "enum"
 values = [
-    {label = "c", value = 0, display_name = "C", description = "Degrees Celcius"},
+    {label = "c", value = 0, display_name = "C", description = "Degrees Celsius"},
     {label = "f", display_name = "F", description = "Degrees Fahrenheit"},
 ]
