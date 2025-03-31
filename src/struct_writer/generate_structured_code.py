@@ -8,7 +8,10 @@ import yaml
 from rich.traceback import install
 
 from struct_writer import templating
-from struct_writer.default_template import default_template
+from struct_writer.default_template import (
+    default_template,
+    new_default_template,
+)
 from struct_writer.templating import Template
 
 install()
@@ -84,13 +87,14 @@ def main(
 
 
 def render_file(definitions, templates, output_file) -> str:
+    new_templates = new_default_template()
+
     s = ""
-    s += Template(templates["file"]["description"]).safe_render(
-        file=definitions.get("file", "")
-    )
-    s += Template(templates["file"]["header"]).safe_render(out_file=output_file)
+
+    s += new_templates["render_file_description"](definitions)
+    s += new_templates["render_file_header"](definitions, out_file=output_file)
     s += render_definitions(definitions, templates)
-    s += Template(templates["file"]["footer"]).safe_render(out_file=output_file)
+    s += new_templates["render_file_footer"](definitions, out_file=output_file)
     return s
 
 

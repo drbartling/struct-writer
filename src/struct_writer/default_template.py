@@ -1,38 +1,65 @@
+import copy
 import tomllib
 
+from struct_writer import templating
+from struct_writer.templating import named_tuple_from_dict
 
-def default_template():
-    template = """\
-[file]
-description = '''
+
+def new_default_template():
+    render_functions = {
+        "render_file_description": render_file_description,
+        "render_file_header": render_file_header,
+        "render_file_footer": render_file_footer,
+    }
+    return render_functions
+
+
+def render_file_description(definitions):
+    definitions = named_tuple_from_dict("definitions", definitions)
+    return f"""\
 /**
 * @file
-* @brief ${file.brief}
+* @brief {definitions.file.brief}
 *
-* ${file.description}
+* {definitions.file.description}
 *
 * @note This file is auto-generated using struct-writer
 */
-'''
+"""
 
-header = '''
-#ifndef ${out_file.stem.upper()}_H_
-#define ${out_file.stem.upper()}_H_
+
+def render_file_header(definitions, **kwargs):
+    definitions = copy.deepcopy(definitions)
+    definitions = templating.merge(definitions, kwargs)
+    definitions = named_tuple_from_dict("definitions", definitions)
+    return f"""\
+#ifndef {definitions.out_file.stem.upper()}_H_
+#define {definitions.out_file.stem.upper()}_H_
 #ifdef __cplusplus
-extern "C" {
+extern "C" {{
 #endif
 
 #include <static_assert.h>
 #include <stdint.h>
 
-'''
+"""
 
-footer = '''
+
+def render_file_footer(definitions, **kwargs):
+    definitions = copy.deepcopy(definitions)
+    definitions = templating.merge(definitions, kwargs)
+    definitions = named_tuple_from_dict("definitions", definitions)
+    return f"""\
 #ifdef __cplusplus
-}
+}}
 #endif
-#endif // ${out_file.stem.upper()}_H_
-'''
+#endif // {definitions.out_file.stem.upper()}_H_
+"""
+
+
+def default_template():
+    template = """\
+[file]
 
 [group]
 tag_name = '${group.name}_tag'
