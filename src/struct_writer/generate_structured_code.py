@@ -12,7 +12,7 @@ from struct_writer.default_template import (
     default_template,
     new_default_template,
 )
-from struct_writer.templating import Template
+from struct_writer.templating import Template, named_tuple_from_dict
 
 install()
 
@@ -152,18 +152,21 @@ def render_structure(structure_name, definitions, templates):
             member_name = member["type"]
             if member_name in definitions:
                 s += render_definition(member_name, definitions, templates)
-
-    s += Template(templates["structure"]["header"]).safe_render(
-        structure=structure
-    )
-    s += render_structure_members(structure_name, definitions, templates)
-    s += Template(templates["structure"]["footer"]).safe_render(
-        structure=structure
-    )
-
     assert (
         expected_size == measured_size
     ), f"Structure `{structure_name}` size is {expected_size}, but member sizes total {measured_size}"
+
+    new_templates = new_default_template()
+    structure = named_tuple_from_dict("structure", structure)
+
+    s += new_templates["render_structure_header"](
+        structure, definitions, templates
+    )
+    s += render_structure_members(structure_name, definitions, templates)
+    s += new_templates["render_structure_footer"](
+        structure, definitions, templates
+    )
+
     return s
 
 

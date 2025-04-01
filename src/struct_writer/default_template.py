@@ -10,6 +10,8 @@ def new_default_template():
         "render_file_description": render_file_description,
         "render_file_header": render_file_header,
         "render_file_footer": render_file_footer,
+        "render_structure_header": render_structure_header,
+        "render_structure_footer": render_structure_footer,
     }
     return render_functions
 
@@ -57,6 +59,22 @@ def render_file_footer(definitions, **kwargs):
 """
 
 
+def render_structure_header(structure, _definitions, _templates):
+    return f"""\
+/// {structure.display_name}
+/// {structure.description}
+typedef struct {structure.name}_s{{
+"""
+
+
+def render_structure_footer(structure, _definitions, _templates):
+    return f"""\
+}} {structure.name}_t;
+STATIC_ASSERT_TYPE_SIZE({structure.name}_t, {structure.size});
+
+"""
+
+
 def default_template():
     template = """\
 [file]
@@ -66,11 +84,6 @@ tag_name = '${group.name}_tag'
 
 [structure]
 type_name = '${structure.name}_t'
-header = '''
-/// ${structure.display_name}
-/// ${structure.description}
-typedef struct ${structure.name}_s{
-'''
 
 footer = '''
 } ${structure.name}_t;
