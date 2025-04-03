@@ -2,8 +2,6 @@ import logging
 import math
 from typing import Any
 
-from struct_writer import generate_structured_code
-
 _logger = logging.getLogger(__name__)
 
 
@@ -92,7 +90,7 @@ def bit_field_into_bytes(element, definitions, endianness):
 
     raw_value = 0
     for member_definition in bit_field_definition.get("members", []):
-        generate_structured_code.complete_bit_field_member(member_definition)
+        complete_bit_field_member(member_definition)
         member_name = member_definition["name"]
         member_value = bit_field_members[member_name]
         member_type = member_definition["type"]
@@ -239,7 +237,7 @@ def parse_bit_field(
             is_signed = member_definition.get("signed", False)
         else:
             is_signed = "int" == member["type"]
-        generate_structured_code.complete_bit_field_member(member)
+        complete_bit_field_member(member)
         mask = int("1" * member["bits"], 2)
         bits_value = byte_value >> member["start"]
         bits_value: int = bits_value & mask
@@ -254,6 +252,38 @@ def parse_bit_field(
             masked_bytes, member["type"], definitions, endianness
         )
     return parsed_members
+
+
+def complete_bit_field_member(bit_field_member):
+    try:
+        assert "start" in bit_field_member
+        assert 0 <= bit_field_member["start"]
+
+        if "last" not in bit_field_member and "bits" not in bit_field_member:
+            bit_field_member["bits"] = 1
+            bit_field_member["last"] = bit_field_member["start"]
+        if "last" not in bit_field_member:
+            bit_field_member["last"] = (
+                bit_field_member["start"] + bit_field_member["bits"] - 1
+            )
+        if "bits" not in bit_field_member:
+            bit_field_member["bits"] = (
+                bit_field_member["last"] - bit_field_member["start"] + 1
+            )
+
+        assert (
+            bit_field_member["last"]
+            == bit_field_member["start"] + bit_field_member["bits"] - 1
+        )
+        assert (
+            bit_field_member["bits"]
+            == bit_field_member["last"] - bit_field_member["start"] + 1
+        )
+
+        return bit_field_member
+    except:  # pragma: no cover
+        _logger.error(str(bit_field_member))
+        raise
 
 
 def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
