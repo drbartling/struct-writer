@@ -1,0 +1,21 @@
+[package]
+name = "rust-example"
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+anyhow = "1.0.97"
+
+[dependencies]
+modular-bitfield = "0.11.2"
+serde = {version = "1.0.217", features = ["serde_derive"], optional = true}
+zerocopy = {version = "0.8.24", features = ["derive", "zerocopy-derive"]}
+
+[features]
+default = []
+std = ["serde/std"]
+serde = ["dep:serde"]
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+rstest = "0.25.0"

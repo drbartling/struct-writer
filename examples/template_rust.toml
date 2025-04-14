@@ -1,0 +1,160 @@
+[file]
+description = '''
+/**
+* @file
+* @brief ${file.brief}
+*
+* ${file.description}
+*
+* @note This file is auto-generated using struct-writer
+*/
+'''
+header = '''
+pub use ${out_file.stem.lower()}::*;
+mod ${out_file.stem.lower()} {
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+#![allow(dead_code)]
+
+use modular_bitfield::prelude::*;
+use zerocopy::*;
+
+#[cfg(feature = "std")]
+use std::fmt::{Display, Formatter};
+
+'''
+footer = '''
+}
+'''
+
+[enum]
+header = '''
+pub type ${enumeration.name}_slice = [u8;  ${enumeration.size}];
+// ${enumeration.display_name}
+// ${enumeration.description}
+#[repr(${enumeration.repr_type})]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(
+    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes, BitfieldSpecifier,
+)]
+#[bits = ${enumeration.bits}]
+pub enum ${enumeration.name} {
+#[default]
+'''
+footer = '''
+}
+const ${enumeration.name.upper()}_SIZE_ASSERT: [u8; ${enumeration.size}] = [0; std::mem::size_of::<${enumeration.name}>()];
+
+impl From<${enumeration.name}> for ${enumeration.name}_slice {
+fn from(value: ${enumeration.name}) -> Self {
+transmute!(value)
+}
+}
+
+'''
+valued = '''
+/// ${value.description}
+${value.label} = ${value.value:#x},
+'''
+
+[group]
+tag_name = '${group.name}_tag'
+
+[union]
+header = '''
+// ${union.display_name}
+// ${union.description}
+#[derive(Clone, Debug, PartialEq)]
+pub enum ${union.name}{
+'''
+footer = '''
+}
+
+'''
+
+[union.members]
+default = '''
+/// ${member.description}
+${member.name}(${member.type}),
+'''
+
+[structure]
+header = '''
+pub type ${structure.name}_slice = [u8;  ${structure.size}];
+// ${structure.display_name}
+// ${structure.description}
+#[repr(packed)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(
+    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+)]
+pub struct ${structure.name}{
+'''
+footer = '''
+}
+const ${structure.name.upper()}_SIZE_ASSERT: [u8; ${structure.size}] = [0; std::mem::size_of::<${structure.name}>()];
+
+'''
+
+[structure.members]
+default = '''
+/// ${member.description}
+${member.name}: [u8; ${member.size}],
+'''
+empty = '''
+// Structure is intentionally empty (zero sized)
+'''
+int = '''
+/// ${member.description}
+${member.name}: i${member.size*8},
+'''
+uint = '''
+/// ${member.description}
+${member.name}: u${member.size*8},
+'''
+void_pointer = '''
+/// ${member.description}
+${member.name}: todo!(), // void ptr
+'''
+bool = '''
+/// ${member.description}
+${member.name}: bool,
+'''
+bytes = '''
+/// ${member.description}
+${member.name}: [u8; ${member.size}],
+'''
+str = '''
+/// ${member.description}
+${member.name}: [u8; ${member.size}],
+'''
+
+[bit_field]
+header = '''
+pub type ${bit_field.name}_slice = [u8;  ${bit_field.size}];
+// ${bit_field.display_name}
+// ${bit_field.description}
+#[repr(u${bit_field.size * 8})]
+#[bitfield]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(
+    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+)]
+pub struct ${bit_field.name}{
+'''
+footer = '''
+}
+const ${bit_field.name.upper()}_SIZE_ASSERT: [u8; ${bit_field.size}] = [0; std::mem::size_of::<${bit_field.name}>()];
+
+'''
+type_name = '${bit_field.name}_t'
+
+[bit_field.members]
+default = '''
+/// ${member.description}
+pub ${member.name}: ${member.type},
+'''
+reserved = '''
+#[skip]
+reserved_${member.start}: B${member.bits},
+'''

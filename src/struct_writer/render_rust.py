@@ -1,6 +1,6 @@
 import logging
 
-from struct_writer.struct_parse.struct_parse import complete_bit_field_member
+from struct_writer.struct_parse import struct_parse
 from struct_writer.templating import Template
 
 _logger = logging.getLogger(__name__)
@@ -11,6 +11,7 @@ rendered = {"file"}
 def render_file(definitions, templates, output_file) -> str:
     rendered.clear()
     rendered.add("file")
+
     s = ""
     s += Template(templates["file"]["description"]).safe_render(
         file=definitions.get("file", "")
@@ -23,7 +24,7 @@ def render_file(definitions, templates, output_file) -> str:
 
 def render_definitions(definitions, templates):
     s = ""
-    element_names = set(definitions.keys())
+    element_names = sorted(definitions.keys())
 
     group_names = {
         k for k, v in definitions.items() if "group" == v.get("type")
@@ -47,7 +48,7 @@ def render_definition(element_name, definitions, templates):
     if "enum" == definition["type"]:
         s += render_enum(element_name, definitions, templates)
     if "group" == definition["type"]:
-        s += render_group(element_name, definitions, templates)
+        s += render_group(element_name, definitions)
     if "bit_field" == definition["type"]:
         s += render_bit_field(element_name, definitions, templates)
 
@@ -104,33 +105,19 @@ def render_structure_members(structure_name, definitions, templates):
 
 
 def render_structure_member(member, templates):
-    if "union" == member["type"]:
-        return render_structure_union(member, templates)
     if member_template := templates["structure"]["members"].get(member["type"]):
         return Template(member_template).safe_render(member=member)
     member_template = templates["structure"]["members"]["default"]
     return Template(member_template).safe_render(member=member)
 
 
-def render_structure_union(union, templates):
-    s = ""
-    s += Template(
-        templates["structure"]["members"]["union"]["header"]
-    ).safe_render(union=union)
-
-    for member in union["members"]:
-        s += render_structure_member(member, templates)
-
-    s += Template(
-        templates["structure"]["members"]["union"]["footer"]
-    ).safe_render(union=union)
-    return s
-
-
 def render_enum(element_name, definitions, templates):
     enumeration = definitions[element_name]
     assert enumeration["type"] == "enum"
     enumeration["name"] = element_name
+    enumeration["repr_type"] = enum_repr_type(enumeration)
+    enumeration = struct_parse.complete_enums(enumeration)
+
     s = ""
 
     s += Template(templates["enum"]["header"]).safe_render(
@@ -144,6 +131,14 @@ def render_enum(element_name, definitions, templates):
     return s
 
 
+def enum_repr_type(enumeration):
+    signed = any(v.get("value", 0) < 0 for v in enumeration.get("values", []))
+    signed = "i" if signed else "u"
+    bits = enumeration["size"] * 8
+    repr_type = f"{signed}{bits}"
+    return repr_type
+
+
 def render_enum_values(element_name, definitions, templates):
     enumeration = definitions[element_name]
     enumeration["name"] = element_name
@@ -155,17 +150,13 @@ def render_enum_values(element_name, definitions, templates):
 
 
 def render_enum_value(value_definition, enumeration, templates):
-    if "value" in value_definition:
-        return Template(templates["enum"]["valued"]).safe_render(
-            enumeration=enumeration, value=value_definition
-        )
-    member_template = templates["enum"]["default"]
-    return Template(member_template).safe_render(
+    assert "value" in value_definition
+    return Template(templates["enum"]["valued"]).safe_render(
         enumeration=enumeration, value=value_definition
     )
 
 
-def render_group(group_name, definitions, templates):
+def render_group(group_name, definitions):
     group = definitions[group_name]
     assert group["type"] == "group"
 
@@ -193,72 +184,51 @@ def render_group(group_name, definitions, templates):
         _logger.error("Group `%s` is missing `size`", group_name)
         raise
 
-    group_enum = {
-        "name": f'{group["name"]}_tag',
-        "display_name": f'{group["name"]} tag',
-        "description": f'Enumeration for {group["name"]} tag',
-        "type": "enum",
-        "size": enum_size,
-    }
-    group_enum["values"] = []
-    for element_name, element in group_elements.items():
-        element["name"] = element_name
-        enum_value = {
-            "label": element["groups"][group_name]["name"],
-            "value": element["groups"][group_name]["value"],
-            "display_name": element["description"],
-            "description": "@see "
-            + Template(templates["structure"]["type_name"]).safe_render(
-                structure=element
-            ),
-        }
-        group_enum["values"].append(enum_value)
+    union_size = max(v["size"] for v in group_elements.values())
+    union_size += enum_size - (union_size % enum_size)
+    type_size = enum_size + union_size
 
-    definitions[group_enum["name"]] = group_enum
-    s += render_definition(group_enum["name"], definitions, templates)
+    s += f"pub type {group_name}_slice = [u8;  {type_size}];\n"
+    s += f"#[repr(u{enum_size*8})]\n"
+    s += "#[derive(Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,)]\n"
+    s += f"pub enum {group_name} {{\n"
 
-    for element_name in group_elements:
-        s += render_definition(element_name, definitions, templates)
+    union_size = max(v["size"] for v in group_elements.values())
+    union_size += enum_size - (union_size % enum_size)
 
-    group_struct = {
-        "name": f'{group["name"]}',
-        "display_name": group["display_name"],
-        "description": group["description"],
-        "type": "structure",
-        "size": -1,
-    }
-    group_struct["members"] = [
-        {
-            "name": "tag",
-            "size": group_enum["size"],
-            "type": group_enum["name"],
-            "description": group_enum["display_name"],
-        }
-    ]
-    group_union = {
-        "name": "value",
-        "type": "union",
-        "description": "",
-        "members": [],
-    }
-    for element_name, element in group_elements.items():
-        element["name"] = element_name
-        union_member = {
-            "name": element["groups"][group_name]["name"],
-            "type": element_name,
-            "display_name": element["display_name"],
-            "description": element["description"],
-            "size": element["size"],
-        }
-        group_union["members"].append(union_member)
-    group_union["size"] = max(m["size"] for m in group_union["members"])
-    group_struct["members"].append(group_union)
-    size = group_enum["size"] + group_union["size"]
-    group_struct["size"] = size
+    for k, v in group_elements.items():
+        name = v["groups"][group_name]["name"]
+        value = v["groups"][group_name]["value"]
+        padding = union_size - v["size"]
+        s += f"{name}({k}, [u8;{padding}]) = {value},\n"
 
-    definitions[group_struct["name"]] = group_struct
-    rendered.remove(group_struct["name"])
-    s += render_definition(group_struct["name"], definitions, templates)
+    s += "}\n"
+    s += f"const {group_name.upper()}_SIZE_ASSERT: [u8; {type_size}] = [0; std::mem::size_of::<{group_name}>()];\n\n"
+
+    s += f"""\
+impl From<{group_name}> for {group_name}_slice {{
+    fn from(value: {group_name}) -> Self {{
+        transmute!(value)
+    }}
+}}
+
+impl TryFrom<&[u8]> for {group_name} {{
+    type Error = ();
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {{
+        let r = {group_name}::try_ref_from_bytes(value).map_err(|_| ())?;
+        Ok(r.to_owned())
+    }}
+}}
+
+impl TryFrom<{group_name}_slice> for {group_name} {{
+    type Error = ValidityError<{group_name}_slice, {group_name}>;
+
+    fn try_from(value: {group_name}_slice) -> Result<Self, Self::Error> {{
+        try_transmute!(value)
+    }}
+}}
+"""
 
     return s
 
@@ -295,26 +265,34 @@ def render_bit_field_members(bit_field_name, definitions, templates):
     bit_position = 0
     for member in members:
         assert bit_position <= member["start"]
-        member = complete_bit_field_member(member)
+        member = struct_parse.complete_bit_field_member(member)
         if member["start"] == bit_position:
             s += render_bit_field_member(bit_field, member, templates)
         else:
             s += render_bit_field_reserve(
-                bit_position, bit_field, member, templates
+                bit_position, bit_field, member["start"] - 1, templates
             )
             s += render_bit_field_member(bit_field, member, templates)
         bit_position = member["last"] + 1
+    total_bits = bit_field["size"] * 8
+    if bit_position < total_bits:
+        last_bit = total_bits - 1
+        s += render_bit_field_reserve(
+            bit_position, bit_field, last_bit, templates
+        )
+        bit_position += last_bit - bit_position + 1
+    assert bit_position == total_bits, f"{bit_position} != {total_bits}"
     return s
 
 
-def render_bit_field_reserve(bit_position, bit_field, member, templates):
+def render_bit_field_reserve(bit_position, bit_field, last_bit, templates):
     reserved_member = {
         "name": "reserved",
         "start": bit_position,
-        "last": member["start"] - 1,
+        "last": last_bit,
         "type": "reserved",
     }
-    complete_bit_field_member(reserved_member)
+    struct_parse.complete_bit_field_member(reserved_member)
     return render_bit_field_member(bit_field, reserved_member, templates)
 
 

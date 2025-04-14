@@ -83,6 +83,25 @@ def enum_into_bytes(element, definitions, endianness):
     return b
 
 
+def complete_enums(enum_definition):
+    if enum_definition.get("complete"):
+        return enum_definition
+
+    counter = 0
+    for value in enum_definition["values"]:
+        if value.get("value"):
+            counter = value["value"]
+        else:
+            value["value"] = counter
+        counter += 1
+
+    bits = math.ceil(math.log2(counter))
+    enum_definition["bits"] = bits
+
+    enum_definition["complete"] = True
+    return enum_definition
+
+
 def bit_field_into_bytes(element, definitions, endianness):
     bit_field_name = list(element.keys())[0]
     bit_field_members = list(element.values())[0]

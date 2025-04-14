@@ -14,6 +14,7 @@ description = '''
 * @note This file is auto-generated using struct-writer
 */
 '''
+
 header = '''
 #ifndef ${out_file.stem.upper()}_H_
 #define ${out_file.stem.upper()}_H_
@@ -25,6 +26,7 @@ extern "C" {
 #include <stdint.h>
 
 '''
+
 footer = '''
 #ifdef __cplusplus
 }
@@ -42,6 +44,7 @@ header = '''
 /// ${structure.description}
 typedef struct ${structure.name}_s{
 '''
+
 footer = '''
 } ${structure.name}_t;
 STATIC_ASSERT_TYPE_SIZE(${structure.name}_t, ${structure.size});
@@ -64,6 +67,22 @@ int${member.size*8}_t ${member.name};
 uint = '''
 /// ${member.description}
 uint${member.size*8}_t ${member.name};
+'''
+void_pointer = '''
+/// ${member.description}
+void * ${member.name};
+'''
+bool = '''
+/// ${member.description}
+bool ${member.name}[${member.size}];
+'''
+bytes = '''
+/// ${member.description}
+uint8_t ${member.name}[${member.size}];
+'''
+str = '''
+/// ${member.description}
+char ${member.name}[${member.size}];
 '''
 union.footer = '''
 } ${union.name};
@@ -121,7 +140,6 @@ uint = '''
 /// ${member.description}
 uint${bit_field.size*8}_t ${member.name}:${member.bits};
 '''
-
 """
     template = tomllib.loads(template)
     return template

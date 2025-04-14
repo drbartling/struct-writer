@@ -7,12 +7,19 @@ import click
 import yaml
 from rich.traceback import install
 
-from struct_writer import render_c, templating
-from struct_writer.default_template_c import default_template
+from struct_writer import (
+    default_template_c,
+    default_template_rust,
+    render_c,
+    render_rust,
+    templating,
+)
 
 install()
 
 _logger = logging.getLogger(__name__)
+
+languages = ["c", "rust"]
 
 
 @click.command()
@@ -55,20 +62,46 @@ _logger = logging.getLogger(__name__)
         path_type=Path,
     ),
 )
+@click.option(
+    "-l",
+    "--language",
+    type=click.Choice(
+        languages,
+        case_sensitive=False,
+    ),
+    default="rust",
+)
 def main(
-    input_definitions: list[Path], template_files: list[Path], output_file: Path
+    input_definitions: list[Path],
+    template_files: list[Path],
+    output_file: Path,
+    language: str,
 ):  # pragma: no cover
     definitions = {}
     for input_definition in input_definitions:
         definitions = templating.merge(
             definitions, load_markup_file(input_definition)
         )
+
+    lang_mapping = {
+        "c": {
+            "template": default_template_c.default_template,
+            "renderer": render_c,
+        },
+        "rust": {
+            "template": default_template_rust.default_template,
+            "renderer": render_rust,
+        },
+    }
+    renderer = lang_mapping[language]["renderer"]
+    default_template = lang_mapping[language]["template"]
+
     templates = default_template()
     for template_file in template_files:
         templates = templating.merge(templates, load_markup_file(template_file))
 
     try:
-        s = render_c.render_file(definitions, templates, output_file)
+        s = renderer.render_file(definitions, templates, output_file)
     except Exception:
         _logger.error(
             "Failed to render code from file(s) `%s`", input_definitions

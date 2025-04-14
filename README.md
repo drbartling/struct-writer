@@ -119,7 +119,7 @@ Code generation is customizable using templates.  If no templates are provided, 
 The default template is shown in the examples folder.
 
 ```bash
-struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template.toml
+struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template_c.toml
 ```
 
 ### Multiple templates
@@ -127,7 +127,7 @@ struct-writer --input-definition examples/structures.toml --output-file examples
 Chain templates together to more tightly specify certain files in a project.  For example if a certain file needs specific includes.
 
 ```bash
-struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template.toml --template-file examples/packed_templates.toml
+struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template_c.toml --template-file examples/packed_templates.toml
 ```
 
 ## development

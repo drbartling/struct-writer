@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## Unreleased
+
+- Implement templating for rust
+
 ## 0.4.11
 
 - Revert back to 0.4.8 functionality
