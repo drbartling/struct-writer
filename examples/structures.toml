@@ -1,6 +1,6 @@
 [file]
-brief = 'Command set for a thermostat'
-description = 'Provides basic debug commands for a thermostat.  Allows for both imperial and metric units.'
+brief = "Command set for a thermostat"
+description = "Provides basic debug commands for a thermostat.  Allows for both imperial and metric units."
 
 [commands]
 description = "Debug commands for thermostat"
@@ -19,10 +19,11 @@ groups.commands = {value = 1, name = "reset"}
 description = "Request a change in temperature"
 display_name = "Request temperature change"
 members = [
-    {name = "temperature", size = 2, type = 'int', description = 'Desired temperature'},
-    {name = "units", size = 1, type = 'temperature_units', description = 'Selected temperature unit'},
+    {name = "temperature", size = 2, type = "int", description = "Desired temperature"},
+    {name = "units", size = 1, type = "temperature_units", description = "Selected temperature unit"},
+    {name = "reserved", size = 1, type = "bool", description = "reserved"},
 ]
-size = 3
+size = 4
 type = "structure"
 groups.commands = {value = 2, name = "temperature_set"}
 

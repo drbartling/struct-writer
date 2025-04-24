@@ -17,7 +17,6 @@ mod ${out_file.stem.lower()} {
 #![allow(dead_code)]
 
 use modular_bitfield::prelude::*;
-use zerocopy::*;
 
 #[cfg(feature = "std")]
 use std::fmt::{Display, Formatter};
@@ -32,22 +31,52 @@ header = '''
 pub type ${enumeration.name}_slice = [u8;  ${enumeration.size}];
 // ${enumeration.display_name}
 // ${enumeration.description}
-#[repr(${enumeration.repr_type})]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes, BitfieldSpecifier,
-)]
-#[bits = ${enumeration.bits}]
+    Default, Debug, Clone, PartialEq, Copy,
+)]${enumeration.unsigned_header}
 pub enum ${enumeration.name} {
 #[default]
 '''
+unsigned_header = '''
+#[derive(BitfieldSpecifier)]
+#[bits = ${enumeration.bits}]
+'''
 footer = '''
 }
-const ${enumeration.name.upper()}_SIZE_ASSERT: [u8; ${enumeration.size}] = [0; std::mem::size_of::<${enumeration.name}>()];
 
 impl From<${enumeration.name}> for ${enumeration.name}_slice {
 fn from(value: ${enumeration.name}) -> Self {
-transmute!(value)
+let v = value as ${enumeration.repr_type};
+v.to_le_bytes()
+}
+}
+
+impl TryFrom<&[u8]> for ${enumeration.name} {
+type Error = ();
+fn try_from(value: &[u8]) -> Result<Self, ()> {
+assert!(value.len() >= size_of::<${enumeration.name}_slice>());
+let v: ${enumeration.name}_slice = value[..size_of::<${enumeration.name}_slice>()]
+.try_into()
+.map_err(|_| ())?;
+Self::try_from(v)
+}
+}
+
+impl TryFrom<${enumeration.name}_slice> for ${enumeration.name} {
+type Error = ();
+fn try_from(value: ${enumeration.name}_slice) -> Result<Self, ()> {
+let v = ${enumeration.repr_type}::from_le_bytes(value);
+v.try_into()
+}
+}
+
+impl TryFrom<${enumeration.repr_type}> for ${enumeration.name} {
+type Error = ();
+fn try_from(value: ${enumeration.repr_type}) -> Result<Self, ()> {
+match value {
+${enumeration.matches}
+_ => Err(()),
+}
 }
 }
 
@@ -64,7 +93,7 @@ tag_name = '${group.name}_tag'
 header = '''
 // ${union.display_name}
 // ${union.description}
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq, Debug, PartialEq)]
 pub enum ${union.name}{
 '''
 footer = '''
@@ -83,68 +112,151 @@ header = '''
 pub type ${structure.name}_slice = [u8;  ${structure.size}];
 // ${structure.display_name}
 // ${structure.description}
-#[repr(packed)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+    Debug, Clone, PartialEq,
 )]
 pub struct ${structure.name}{
 '''
 footer = '''
 }
-const ${structure.name.upper()}_SIZE_ASSERT: [u8; ${structure.size}] = [0; std::mem::size_of::<${structure.name}>()];
+
+impl From<${structure.name}> for ${structure.name}_slice {
+#[allow(unused_variables)]
+fn from(value: ${structure.name}) -> Self {
+#[allow(unused_mut)]
+let mut buf: ${structure.name}_slice = [0; ${structure.size}];
+
+${structure.serialization}
+
+buf
+}
+}
+
+impl TryFrom<${structure.name}_slice> for ${structure.name} {
+type Error = ();
+fn try_from(input: ${structure.name}_slice) -> Result<Self, ()> {
+    let input: &[u8] = &input;
+    input.try_into()
+}
+}
+
+impl TryFrom<&[u8]> for ${structure.name} {
+type Error = ();
+fn try_from(input: &[u8]) -> Result<Self, ()> {
+assert!(input.len() >= size_of::<${structure.name}_slice>());
+
+Ok(Self{
+${structure.deserialization}
+})
+
+}
+}
 
 '''
 
-[structure.members]
-default = '''
+[structure.members.default]
+definition = '''
 /// ${member.description}
-${member.name}: [u8; ${member.size}],
+pub ${member.name}: ${member.type},
 '''
-empty = '''
+serialize = '''
+let temp: [u8; ${member.size}] = value.${member.name}.into();
+buf[${buffer.start}..${buffer.end}].copy_from_slice(&temp);
+'''
+deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into()?,'
+
+[structure.members.empty]
+definition = '''
 // Structure is intentionally empty (zero sized)
 '''
-int = '''
+serialize = ''
+deserialize = ''
+
+[structure.members.int]
+definition = '''
 /// ${member.description}
-${member.name}: i${member.size*8},
+pub ${member.name}: i${member.size*8},
 '''
-uint = '''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name}.to_le_bytes());'
+deserialize = '${member.name}: i${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().unwrap()),'
+
+[structure.members.uint]
+definition = '''
 /// ${member.description}
-${member.name}: u${member.size*8},
+pub ${member.name}: u${member.size*8},
 '''
-void_pointer = '''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name}.to_le_bytes());'
+deserialize = '${member.name}: u${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().unwrap()),'
+
+[structure.members.bool]
+definition = '''
 /// ${member.description}
-${member.name}: todo!(), // void ptr
+pub ${member.name}: bool,
 '''
-bool = '''
+serialize = 'buf[${buffer.start}] = if value.${member.name}{1}else{0};'
+deserialize = '${member.name}: if input[${buffer.start}] == 0 {false} else {true},'
+
+[structure.members.bytes]
+definition = '''
 /// ${member.description}
-${member.name}: bool,
+pub ${member.name}: [u8; ${member.size}],
 '''
-bytes = '''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name});'
+deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into().unwrap(),'
+
+[structure.members.reserved]
+definition = '''
 /// ${member.description}
 ${member.name}: [u8; ${member.size}],
 '''
-str = '''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&[0_u8;${member.size}]);'
+deserialize = '${member.name}: [0_u8;${member.size}],'
+
+[structure.members.str]
+definition = '''
 /// ${member.description}
-${member.name}: [u8; ${member.size}],
+pub ${member.name}: [u8; ${member.size}],
 '''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name});'
+deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into().unwrap(),'
 
 [bit_field]
 header = '''
 pub type ${bit_field.name}_slice = [u8;  ${bit_field.size}];
 // ${bit_field.display_name}
 // ${bit_field.description}
-#[repr(u${bit_field.size * 8})]
 #[bitfield]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+    Debug, Clone, PartialEq, Copy,
 )]
 pub struct ${bit_field.name}{
 '''
 footer = '''
 }
-const ${bit_field.name.upper()}_SIZE_ASSERT: [u8; ${bit_field.size}] = [0; std::mem::size_of::<${bit_field.name}>()];
+
+impl From<${bit_field.name}> for ${bit_field.name}_slice {
+fn from(input: ${bit_field.name}) -> Self {
+input.into_bytes()
+}
+}
+
+impl TryFrom<${bit_field.name}_slice> for ${bit_field.name} {
+type Error = ();
+fn try_from(input: ${bit_field.name}_slice) -> Result<Self, ()> {
+Ok(Self::from_bytes(input))
+}
+}
+
+impl TryFrom<&[u8]> for ${bit_field.name} {
+type Error = ();
+fn try_from(input: &[u8]) -> Result<Self, ()> {
+assert!(input.len() >= size_of::<${bit_field.name}_slice>());
+let a: ${bit_field.name}_slice = input.try_into().unwrap();
+Ok(Self::from_bytes(a))
+}
+}
 
 '''
 type_name = '${bit_field.name}_t'
@@ -157,4 +269,8 @@ pub ${member.name}: ${member.type},
 reserved = '''
 #[skip]
 reserved_${member.start}: B${member.bits},
+'''
+uint = '''
+/// ${member.description}
+pub ${member.name}: B${member.bits},
 '''

@@ -96,6 +96,12 @@ def complete_enums(enum_definition):
         counter += 1
 
     bits = math.ceil(math.log2(counter))
+    signed = (
+        1
+        if any(v.get("value", 0) < 0 for v in enum_definition.get("values", []))
+        else 0
+    )
+    bits += signed
     enum_definition["bits"] = bits
 
     enum_definition["complete"] = True

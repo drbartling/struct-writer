@@ -44,12 +44,16 @@ def render_definition(element_name, definitions, templates):
     definition = definitions[element_name]
     s = ""
     if "structure" == definition["type"]:
+        pass
         s += render_structure(element_name, definitions, templates)
     if "enum" == definition["type"]:
+        pass
         s += render_enum(element_name, definitions, templates)
     if "group" == definition["type"]:
+        pass
         s += render_group(element_name, definitions)
     if "bit_field" == definition["type"]:
+        pass
         s += render_bit_field(element_name, definitions, templates)
 
     return s
@@ -77,10 +81,17 @@ def render_structure(structure_name, definitions, templates):
             if member_name in definitions:
                 s += render_definition(member_name, definitions, templates)
 
+    structure["serialization"] = render_structure_serialization(
+        structure, templates
+    )
+    structure["deserialization"] = render_structure_deserialization(
+        structure, templates
+    )
+
     s += Template(templates["structure"]["header"]).safe_render(
         structure=structure
     )
-    s += render_structure_members(structure_name, definitions, templates)
+    s += render_structure_members(structure, definitions, templates)
     s += Template(templates["structure"]["footer"]).safe_render(
         structure=structure
     )
@@ -91,24 +102,60 @@ def render_structure(structure_name, definitions, templates):
     return s
 
 
-def render_structure_members(structure_name, definitions, templates):
-    structure = definitions.get(structure_name)
+def render_structure_serialization(structure, templates):
+    serialization_lines = []
+    start = 0
+    for member in structure.get("members", []):
+        end = start + member["size"]
+        buffer = {"start": start, "end": end}
+        member_templates = templates["structure"]["members"].get(
+            member["type"], templates["structure"]["members"]["default"]
+        )
+        member_template = member_templates["serialize"]
+        s = Template(member_template).safe_render(member=member, buffer=buffer)
 
+        serialization_lines.append(s)
+        start = end
+
+    return "\n".join(serialization_lines)
+
+
+def render_structure_deserialization(structure, templates):
+    serialization_lines = []
+    start = 0
+    for member in structure.get("members", []):
+        end = start + member["size"]
+        buffer = {"start": start, "end": end}
+        member_templates = templates["structure"]["members"].get(
+            member["type"], templates["structure"]["members"]["default"]
+        )
+        member_template = member_templates["deserialize"]
+        s = Template(member_template).safe_render(member=member, buffer=buffer)
+
+        serialization_lines.append(s)
+        start = end
+
+    return "\n".join(serialization_lines)
+
+
+def render_structure_members(structure, definitions, templates):
     s = ""
     assert structure["type"] == "structure"
     if members := structure.get("members"):
         for member in members:
             s += render_structure_member(member, templates)
     else:
-        s = templates["structure"]["members"]["empty"]
+        s = templates["structure"]["members"]["empty"]["definition"]
     return s
 
 
 def render_structure_member(member, templates):
-    if member_template := templates["structure"]["members"].get(member["type"]):
-        return Template(member_template).safe_render(member=member)
-    member_template = templates["structure"]["members"]["default"]
-    return Template(member_template).safe_render(member=member)
+    member_templates = templates["structure"]["members"].get(
+        member["type"], templates["structure"]["members"]["default"]
+    )
+    member_template = member_templates["definition"]
+    s = Template(member_template).safe_render(member=member)
+    return s
 
 
 def render_enum(element_name, definitions, templates):
@@ -117,6 +164,13 @@ def render_enum(element_name, definitions, templates):
     enumeration["name"] = element_name
     enumeration["repr_type"] = enum_repr_type(enumeration)
     enumeration = struct_parse.complete_enums(enumeration)
+    enumeration["unsigned_header"] = (
+        templates["enum"]["unsigned_header"]
+        if not enum_is_signed(enumeration)
+        else ""
+    )
+
+    enumeration["matches"] = enum_matches(enumeration)
 
     s = ""
 
@@ -132,11 +186,23 @@ def render_enum(element_name, definitions, templates):
 
 
 def enum_repr_type(enumeration):
-    signed = any(v.get("value", 0) < 0 for v in enumeration.get("values", []))
-    signed = "i" if signed else "u"
+    signed = "i" if enum_is_signed(enumeration) else "u"
     bits = enumeration["size"] * 8
     repr_type = f"{signed}{bits}"
     return repr_type
+
+
+def enum_is_signed(enumeration):
+    return any(v.get("value", 0) < 0 for v in enumeration.get("values", []))
+
+
+def enum_matches(enumeration):
+    match_lines = [
+        f"{v['value']} => Ok({enumeration['name']}::{v['label']}),"
+        for v in enumeration.get("values", [])
+    ]
+    s = "\n".join(match_lines)
+    return s
 
 
 def render_enum_values(element_name, definitions, templates):
@@ -185,48 +251,101 @@ def render_group(group_name, definitions):
         raise
 
     union_size = max(v["size"] for v in group_elements.values())
-    union_size += enum_size - (union_size % enum_size)
     type_size = enum_size + union_size
+    repr_type = f"u{enum_size*8}"
 
     s += f"pub type {group_name}_slice = [u8;  {type_size}];\n"
-    s += f"#[repr(u{enum_size*8})]\n"
-    s += "#[derive(Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,)]\n"
+    s += f"#[repr({repr_type})]\n"
+    s += "#[derive(Debug, Clone, PartialEq, )]\n"
     s += f"pub enum {group_name} {{\n"
-
-    union_size = max(v["size"] for v in group_elements.values())
-    union_size += enum_size - (union_size % enum_size)
 
     for k, v in group_elements.items():
         name = v["groups"][group_name]["name"]
         value = v["groups"][group_name]["value"]
-        padding = union_size - v["size"]
-        s += f"{name}({k}, [u8;{padding}]) = {value},\n"
+        payload_size = v["size"]
+        padding = union_size - payload_size
+        s += f"{name}({k}) = {value},\n"
 
     s += "}\n"
-    s += f"const {group_name.upper()}_SIZE_ASSERT: [u8; {type_size}] = [0; std::mem::size_of::<{group_name}>()];\n\n"
+
+    s += f"""\
+impl {group_name} {{
+pub fn size(&self) -> usize {{
+match self{{
+"""
+
+    for k, v in group_elements.items():
+        name = v["groups"][group_name]["name"]
+        value = v["groups"][group_name]["value"]
+        payload_size = v["size"]
+        padding = union_size - payload_size
+        s += f"{group_name}::{name}(_) => {enum_size + payload_size},\n"
+
+    s += """
+}
+}
+}
+"""
 
     s += f"""\
 impl From<{group_name}> for {group_name}_slice {{
-    fn from(value: {group_name}) -> Self {{
-        transmute!(value)
-    }}
+fn from(value: {group_name}) -> Self {{
+#[allow(unused_mut)]
+let mut buf = [0_u8; {type_size}];
+match value {{
+"""
+
+    for k, v in group_elements.items():
+        name = v["groups"][group_name]["name"]
+        value = v["groups"][group_name]["value"]
+        inner_size = v["size"]
+        end = enum_size + inner_size
+        s += f"{group_name}::{name}(inner) => {{\n"
+        s += f"buf[0..{enum_size}].copy_from_slice(&{value}_{repr_type}.to_le_bytes());\n"
+        s += f"let inner_buf: {k}_slice = inner.into();\n"
+        s += f"buf[{enum_size}..{end}].copy_from_slice(&inner_buf);\n"
+        s += "}\n"
+
+    s += f"""\
 }}
+buf
+}}
+}}
+"""
 
+    s += f"""\
 impl TryFrom<&[u8]> for {group_name} {{
-    type Error = ();
+type Error = ();
 
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {{
-        let r = {group_name}::try_ref_from_bytes(value).map_err(|_| ())?;
-        Ok(r.to_owned())
-    }}
+fn try_from(value: &[u8]) -> Result<Self, Self::Error> {{
+let repr_int = {repr_type}::from_le_bytes(value[0..{enum_size}].try_into().unwrap());
+match repr_int {{
+"""
+
+    for k, v in group_elements.items():
+        name = v["groups"][group_name]["name"]
+        value = v["groups"][group_name]["value"]
+        inner_size = v["size"]
+        end = enum_size + inner_size
+        s += f"{value} => {{\n"
+        s += f"let inner_buf: &[u8] = &value[{enum_size}..];\n"
+        s += f"let inner = inner_buf.try_into()?;\n"
+        s += f"Ok({group_name}::{name}(inner))\n"
+        s += "}\n"
+
+    s += f"""\
+_ => Err(()),
+}}
+}}
 }}
 
 impl TryFrom<{group_name}_slice> for {group_name} {{
-    type Error = ValidityError<{group_name}_slice, {group_name}>;
+type Error = ();
 
-    fn try_from(value: {group_name}_slice) -> Result<Self, Self::Error> {{
-        try_transmute!(value)
-    }}
+fn try_from(value: {group_name}_slice) -> Result<Self, Self::Error> {{
+let r: &[u8] = &value;
+r.try_into()
+}}
 }}
 """
 

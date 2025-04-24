@@ -93,7 +93,7 @@ pub type temperature_units_slice = [u8;  1];
 #[repr(u8)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes, BitfieldSpecifier,
+    Default, Debug, Clone, ByteEq, ByteHash, Immutable, KnownLayout, IntoBytes, TryFromBytes, BitfieldSpecifier,
 )]
 #[bits = 1]
 pub enum temperature_units {
@@ -172,7 +172,7 @@ pub type cmd_temperature_set_slice = [u8;  3];
 #[repr(packed)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+    Default, Debug, Clone, ByteEq, ByteHash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
 )]
 pub struct cmd_temperature_set{
 /// Desired temperature
@@ -323,7 +323,7 @@ use std::fmt::{Display, Formatter};
 
 pub type commands_slice = [u8;  6];
 #[repr(u16)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,)]
+#[derive(Debug, Clone, ByteEq, ByteHash, Immutable, KnownLayout, IntoBytes, TryFromBytes,)]
 pub enum commands {
 reset(cmd_reset, [u8;4]) = 1,
 temperature_set(cmd_temperature_set, [u8;1]) = 2,
@@ -358,7 +358,7 @@ pub type cmd_reset_slice = [u8;  0];
 #[repr(packed)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+    Default, Debug, Clone, ByteEq, ByteHash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
 )]
 pub struct cmd_reset{
 // Structure is intentionally empty (zero sized)
@@ -371,7 +371,7 @@ pub type temperature_units_slice = [u8;  1];
 #[repr(u8)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes, BitfieldSpecifier,
+    Default, Debug, Clone, ByteEq, ByteHash, Immutable, KnownLayout, IntoBytes, TryFromBytes, BitfieldSpecifier,
 )]
 #[bits = 1]
 pub enum temperature_units {
@@ -395,7 +395,7 @@ pub type cmd_temperature_set_slice = [u8;  3];
 #[repr(packed)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+    Default, Debug, Clone, ByteEq, ByteHash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
 )]
 pub struct cmd_temperature_set{
 /// Desired temperature
@@ -470,7 +470,7 @@ pub type cmd_temperature_set_slice = [u8;  2];
 #[bitfield]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Default, Debug, Clone, PartialEq, Eq, Hash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
+    Default, Debug, Clone, ByteEq, ByteHash, Immutable, KnownLayout, IntoBytes, TryFromBytes,
 )]
 pub struct cmd_temperature_set{
 /// Desired temperature

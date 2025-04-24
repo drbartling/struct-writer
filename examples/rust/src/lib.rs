@@ -7,7 +7,7 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(commands::reset(cmd_reset{}, [0;4]), [1, 0, 0, 0, 0, 0])]
+    #[case(commands::reset(cmd_reset{}), [1, 0, 0, 0, 0, 0])]
     fn test_something(#[case] input: commands, #[case] expected: commands_slice) {
         let result: commands_slice = input.clone().into();
         assert_eq!(result, expected);
