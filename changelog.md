@@ -1,5 +1,8 @@
 # struct-writer Change Log
 
+## 0.5.1
+- Fix issue with struct-writer referencing example for rust template
+
 ## 0.5.0
 - Implement templating for rust
 - Add option to specify language in use
