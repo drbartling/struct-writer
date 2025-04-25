@@ -1,5 +1,8 @@
 # struct-writer Change Log
 
+## 0.5.2
+- Change default language to C for backwards compatability
+
 ## 0.5.1
 - Fix issue with struct-writer referencing example for rust template
 

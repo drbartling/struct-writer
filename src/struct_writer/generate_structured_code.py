@@ -69,7 +69,7 @@ languages = ["c", "rust"]
         languages,
         case_sensitive=False,
     ),
-    default="rust",
+    default="c",
 )
 def main(
     input_definitions: list[Path],
