@@ -1,8 +1,8 @@
 # struct-writer Change Log
 
-## Unreleased
-
+## 0.5.0
 - Implement templating for rust
+- Add option to specify language in use
 
 ## 0.4.11
 
@@ -29,7 +29,7 @@
 ## 0.4.3
 
 ### Change
-- Remove the _u from the group union structure name
+- Remove the `_u` from the group union structure name
 
 ## 0.4.2
 
