@@ -44,16 +44,12 @@ def render_definition(element_name, definitions, templates):
     definition = definitions[element_name]
     s = ""
     if "structure" == definition["type"]:
-        pass
         s += render_structure(element_name, definitions, templates)
     if "enum" == definition["type"]:
-        pass
         s += render_enum(element_name, definitions, templates)
     if "group" == definition["type"]:
-        pass
-        s += render_group(element_name, definitions)
+        s += render_group(element_name, definitions, templates)
     if "bit_field" == definition["type"]:
-        pass
         s += render_bit_field(element_name, definitions, templates)
 
     return s
@@ -91,7 +87,7 @@ def render_structure(structure_name, definitions, templates):
     s += Template(templates["structure"]["header"]).safe_render(
         structure=structure
     )
-    s += render_structure_members(structure, definitions, templates)
+    s += render_structure_members(structure, templates)
     s += Template(templates["structure"]["footer"]).safe_render(
         structure=structure
     )
@@ -138,7 +134,7 @@ def render_structure_deserialization(structure, templates):
     return "\n".join(serialization_lines)
 
 
-def render_structure_members(structure, definitions, templates):
+def render_structure_members(structure, templates):
     s = ""
     assert structure["type"] == "structure"
     if members := structure.get("members"):
@@ -222,10 +218,9 @@ def render_enum_value(value_definition, enumeration, templates):
     )
 
 
-def render_group(group_name, definitions):
+def render_group(group_name, definitions, templates):
     group = definitions[group_name]
     assert group["type"] == "group"
-
     group["name"] = group_name
     s = ""
 
@@ -253,17 +248,14 @@ def render_group(group_name, definitions):
     union_size = max(v["size"] for v in group_elements.values())
     type_size = enum_size + union_size
     repr_type = f"u{enum_size*8}"
+    group["repr_type"] = repr_type
+    group["max_size"] = type_size
 
-    s += f"pub type {group_name}_slice = [u8;  {type_size}];\n"
-    s += f"#[repr({repr_type})]\n"
-    s += "#[derive(Debug, Clone, PartialEq, )]\n"
-    s += f"pub enum {group_name} {{\n"
+    s += Template(templates["group"]["header"]).safe_render(group=group)
 
     for k, v in group_elements.items():
         name = v["groups"][group_name]["name"]
         value = v["groups"][group_name]["value"]
-        payload_size = v["size"]
-        padding = union_size - payload_size
         s += f"{name}({k}) = {value},\n"
 
     s += "}\n"
@@ -276,9 +268,7 @@ match self{{
 
     for k, v in group_elements.items():
         name = v["groups"][group_name]["name"]
-        value = v["groups"][group_name]["value"]
         payload_size = v["size"]
-        padding = union_size - payload_size
         s += f"{group_name}::{name}(_) => {enum_size + payload_size},\n"
 
     s += """
@@ -306,11 +296,11 @@ match value {{
         s += f"buf[{enum_size}..{end}].copy_from_slice(&inner_buf);\n"
         s += "}\n"
 
-    s += f"""\
-}}
+    s += """\
+}
 buf
-}}
-}}
+}
+}
 """
 
     s += f"""\
@@ -329,7 +319,7 @@ match repr_int {{
         end = enum_size + inner_size
         s += f"{value} => {{\n"
         s += f"let inner_buf: &[u8] = &value[{enum_size}..];\n"
-        s += f"let inner = inner_buf.try_into()?;\n"
+        s += "let inner = inner_buf.try_into()?;\n"
         s += f"Ok({group_name}::{name}(inner))\n"
         s += "}\n"
 

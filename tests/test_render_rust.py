@@ -378,6 +378,8 @@ use modular_bitfield::prelude::*;
 use std::fmt::{Display, Formatter};
 
 pub type commands_slice = [u8;  5];
+// Thermostat command
+// Debug commands for thermostat
 #[repr(u16)]
 #[derive(Debug, Clone, PartialEq, )]
 pub enum commands {

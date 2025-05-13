@@ -94,6 +94,15 @@ ${value.label} = ${value.value:#x},
 [group]
 tag_name = '${group.name}_tag'
 
+header = '''
+pub type ${group.name}_slice = [u8;  ${group.max_size}];
+// ${group.display_name}
+// ${group.description}
+#[repr(${group.repr_type})]
+#[derive(Debug, Clone, PartialEq, )]
+pub enum ${group.name} {
+'''
+
 [union]
 header = '''
 // ${union.display_name}
