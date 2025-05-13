@@ -5,27 +5,27 @@ include = ["README.md", "pyproject.toml"]
 name = "struct_writer"
 readme = "README.md"
 repository = "https://github.com/drbartling/struct-writer"
-version = "0.5.2"
+version = "0.5.3"
 
 [tool.poetry.scripts]
 struct-writer = "struct_writer.generate_structured_code:main"
 
 [tool.poetry.dependencies]
 python = "^3.11,<3.14"
-click = "^8.1.8"
+click = "^8.2.0"
 pyyaml = "^6.0.2"
-rich = "^13.9.4"
-pydantic = "^2.10.6"
+rich = "^14.0.0"
+pydantic = "^2.11.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
-coverage = "^7.7.1"
+coverage = "^7.8.0"
 devtools = "^0.12.2"
 isort = "^6.0.1"
 pre-commit = "^4.2.0"
-pylint = "^3.3.6"
+pylint = "^3.3.7"
 pytest = "^8.3.5"
-pytest-cov = "^6.0.0"
+pytest-cov = "^6.1.1"
 
 [tool.coverage.paths]
 source = ["src"]
