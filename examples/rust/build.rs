@@ -4,8 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn main() -> Result<()> {
-    println!("cargo:rerun-if-changed=NULL");
-    // println!("cargo::rerun-if-changed=build.rs");
+    println!("cargo::rerun-if-changed=build.rs");
 
     let out_dir = env::var_os("OUT_DIR").ok_or_else(|| anyhow!("Unable to get `OUT_DIR`"))?;
     let out_dir = PathBuf::from(out_dir);
@@ -47,13 +46,13 @@ fn generate_structs(
     input_definitions.iter().for_each(|p| {
         cmd.arg("--input-definitions");
         cmd.arg(p);
-        // println!("cargo::rerun-if-changed={}", p.display());
+        println!("cargo::rerun-if-changed={}", p.display());
     });
 
     template_files.iter().for_each(|p| {
         cmd.arg("--template-files");
         cmd.arg(p);
-        // println!("cargo::rerun-if-changed={}", p.display());
+        println!("cargo::rerun-if-changed={}", p.display());
     });
 
     let status = cmd.status()?;
