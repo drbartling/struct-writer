@@ -146,6 +146,8 @@ def primitive_to_bytes(element, endianness, size):
         assert isinstance(value, bytes)
         assert len(value) == size
         return value
+    if "reserved" == type_name:
+        return b"\xFF" * size
     if "str" == type_name:
         assert isinstance(value, str)
         b_str = str(value).encode("utf-8")
@@ -316,7 +318,7 @@ def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
         return int.from_bytes(byte_data, endianness, signed=True)
     if "uint" == type_name:
         return int.from_bytes(byte_data, endianness, signed=False)
-    if "bytes" == type_name:
+    if type_name in {"bytes", "reserved"}:
         return (
             R" ".join([f"{b:02X}" for b in byte_data])
             + f" (len={len(byte_data)})"

@@ -1,5 +1,11 @@
 # struct-writer Change Log
 
+## 0.5.4
+- Add "reserved" as a primitive type
+
+## 0.5.3
+- Configure group header in rust template
+
 ## 0.5.2
 - Change default language to C for backwards compatability
 
