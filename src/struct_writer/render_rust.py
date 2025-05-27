@@ -271,12 +271,12 @@ match self{{
         payload_size = v["size"]
         s += f"{group_name}::{name}(_) => {enum_size + payload_size},\n"
 
-    s += """
-}
-}
+    s += f"""\
+}}
+}}
 
-pub fn tag_to_size(tag: u8) -> Option<usize> {
-match tag {
+pub fn tag_to_size(tag: u8) -> Option<usize> {{
+match tag {{
 """
 
     for k, v in group_elements.items():
