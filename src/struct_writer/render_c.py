@@ -84,9 +84,9 @@ def render_structure(structure_name, definitions, templates):
         structure=structure
     )
 
-    assert (
-        expected_size == measured_size
-    ), f"Structure `{structure_name}` size is {expected_size}, but member sizes total {measured_size}"
+    assert expected_size == measured_size, (
+        f"Structure `{structure_name}` size is {expected_size}, but member sizes total {measured_size}"
+    )
     return s
 
 
@@ -194,9 +194,9 @@ def render_group(group_name, definitions, templates):
         raise
 
     group_enum = {
-        "name": f'{group["name"]}_tag',
-        "display_name": f'{group["name"]} tag',
-        "description": f'Enumeration for {group["name"]} tag',
+        "name": f"{group['name']}_tag",
+        "display_name": f"{group['name']} tag",
+        "description": f"Enumeration for {group['name']} tag",
         "type": "enum",
         "size": enum_size,
     }
@@ -221,7 +221,7 @@ def render_group(group_name, definitions, templates):
         s += render_definition(element_name, definitions, templates)
 
     group_struct = {
-        "name": f'{group["name"]}',
+        "name": f"{group['name']}",
         "display_name": group["display_name"],
         "description": group["description"],
         "type": "structure",

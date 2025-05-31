@@ -92,9 +92,9 @@ def render_structure(structure_name, definitions, templates):
         structure=structure
     )
 
-    assert (
-        expected_size == measured_size
-    ), f"Structure `{structure_name}` size is {expected_size}, but member sizes total {measured_size}"
+    assert expected_size == measured_size, (
+        f"Structure `{structure_name}` size is {expected_size}, but member sizes total {measured_size}"
+    )
     return s
 
 
@@ -247,7 +247,7 @@ def render_group(group_name, definitions, templates):
 
     union_size = max(v["size"] for v in group_elements.values())
     type_size = enum_size + union_size
-    repr_type = f"u{enum_size*8}"
+    repr_type = f"u{enum_size * 8}"
     group["repr_type"] = repr_type
     group["max_size"] = type_size
 
@@ -271,21 +271,23 @@ match self{{
         payload_size = v["size"]
         s += f"{group_name}::{name}(_) => {enum_size + payload_size},\n"
 
-    s += f"""\
-}}
-}}
+    s += """\
+}
+}
 
-pub fn tag_to_size(tag: u8) -> Option<usize> {{
-match tag {{
+pub fn tag_to_size(tag: u8) -> Option<usize> {
+match tag {
 """
 
     for k, v in group_elements.items():
-        name       = v["groups"][group_name]["name"]
-        tag_value  = v["groups"][group_name]["value"]
+        name = v["groups"][group_name]["name"]
+        tag_value = v["groups"][group_name]["value"]
         payload_size = v["size"]
-        total_size   = enum_size + payload_size
-        s += f"{tag_value:#04x} => Some({total_size}), // {group_name}::{name}\n"
-    s += f" _ => None,"
+        total_size = enum_size + payload_size
+        s += (
+            f"{tag_value:#04x} => Some({total_size}), // {group_name}::{name}\n"
+        )
+    s += " _ => None,"
     s += """\
 }
 }
@@ -293,7 +295,7 @@ match tag {{
 """
 
     s += f"""\
-impl From<{group_name}> for {group_name}Slice {{
+impl From<{group_name}> for {group_name}_slice {{
 fn from(value: {group_name}) -> Self {{
 #[allow(unused_mut)]
 let mut buf = [0_u8; {type_size}];
@@ -307,7 +309,7 @@ match value {{
         end = enum_size + inner_size
         s += f"{group_name}::{name}(inner) => {{\n"
         s += f"buf[0..{enum_size}].copy_from_slice(&{value}_{repr_type}.to_le_bytes());\n"
-        s += f"let inner_buf: {k}Slice = inner.into();\n"
+        s += f"let inner_buf: {k}_slice = inner.into();\n"
         s += f"buf[{enum_size}..{end}].copy_from_slice(&inner_buf);\n"
         s += "}\n"
 
@@ -344,10 +346,10 @@ _ => Err(()),
 }}
 }}
 
-impl TryFrom<{group_name}Slice> for {group_name} {{
+impl TryFrom<{group_name}_slice> for {group_name} {{
 type Error = ();
 
-fn try_from(value: {group_name}Slice) -> Result<Self, Self::Error> {{
+fn try_from(value: {group_name}_slice) -> Result<Self, Self::Error> {{
 let r: &[u8] = &value;
 r.try_into()
 }}

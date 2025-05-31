@@ -147,7 +147,7 @@ def primitive_to_bytes(element, endianness, size):
         assert len(value) == size
         return value
     if "reserved" == type_name:
-        return b"\xFF" * size
+        return b"\xff" * size
     if "str" == type_name:
         assert isinstance(value, str)
         b_str = str(value).encode("utf-8")
@@ -188,9 +188,9 @@ def parse_bytes(byte_data, type_name, definitions, endianness="big"):
 def parse_struct(byte_data, struct_name, definitions, endianness):
     definition = definitions[struct_name]
     assert "structure" == definition["type"]
-    assert (
-        len(byte_data) == definition["size"]
-    ), f'Expected {definition["size"]} bytes for `{struct_name}`, found {len(byte_data)}'
+    assert len(byte_data) == definition["size"], (
+        f"Expected {definition['size']} bytes for `{struct_name}`, found {len(byte_data)}"
+    )
 
     members = definition.get("members", [])
     parsed_members = {}
