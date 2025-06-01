@@ -40,7 +40,7 @@ repos:
   - id: test
     name: unit tests
     description: Run unit tests.
-    entry: poetry run pytest
+    entry: uv run pytest
     language: system
     types: [python]
     pass_filenames: false

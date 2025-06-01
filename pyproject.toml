@@ -1,30 +1,30 @@
-[tool.poetry]
-authors = ["Ryan Bartling <ryan.bartling@gmail.com>"]
+[project]
+authors = [
+    {name = "Ryan Bartling", email = "ryan.bartling@gmail.com"},
+]
 description = "Generate structured code for APIs and documentation"
-include = ["README.md", "pyproject.toml"]
 name = "struct_writer"
 readme = "README.md"
-repository = "https://github.com/drbartling/struct-writer"
+requires-python = ">=3.11,<3.14"
 version = "0.5.5"
+dependencies = [
+    "click>=8.2.0",
+    "pyyaml>=6.0.2",
+    "rich>=14.0.0",
+    "pydantic>=2.11.4",
+]
 
-[tool.poetry.scripts]
+[project.urls]
+repository = "https://github.com/drbartling/struct-writer"
+
+[project.scripts]
 struct-writer = "struct_writer.generate_structured_code:main"
 
-[tool.poetry.dependencies]
-python = "^3.11,<3.14"
-click = "^8.2.0"
-pyyaml = "^6.0.2"
-rich = "^14.0.0"
-pydantic = "^2.11.4"
-
-[tool.poetry.group.dev.dependencies]
-coverage = "^7.8.0"
-devtools = "^0.12.2"
-isort = "^6.0.1"
-pre-commit = "^4.2.0"
-pytest = "^8.3.5"
-pytest-cov = "^6.1.1"
-ruff = "^0.11.12"
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+]
 
 [tool.coverage.paths]
 source = ["src"]
@@ -96,5 +96,5 @@ addopts = [
 testpaths = ["tests"]
 
 [build-system]
-build-backend = "poetry.core.masonry.api"
-requires = ["poetry-core>=1.0.0"]
+build-backend = "hatchling.build"
+requires = ["hatchling>=1.0.0"]
