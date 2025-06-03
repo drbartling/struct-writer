@@ -274,9 +274,10 @@ match self{{
     s += """\
 }
 }
+"""
 
-pub fn tag_to_size(tag: u8) -> Option<usize> {
-match tag {
+    s += f"""pub fn size_from_tag(tag: {repr_type}) -> Option<usize> {{
+match tag {{
 """
 
     for k, v in group_elements.items():

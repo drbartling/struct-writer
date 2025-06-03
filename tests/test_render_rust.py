@@ -393,8 +393,7 @@ commands::reset(_) => 2,
 commands::temperature_set(_) => 5,
 }
 }
-
-pub fn tag_to_size(tag: u8) -> Option<usize> {
+pub fn size_from_tag(tag: u16) -> Option<usize> {
 match tag {
 0x01 => Some(2), // commands::reset
 0x02 => Some(5), // commands::temperature_set
