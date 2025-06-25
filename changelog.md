@@ -1,5 +1,8 @@
 # struct-writer Change Log
 
+## 0.6.1
+- Check that input slice is at least as large as the tag enum
+
 ## 0.5.4
 - Add "reserved" as a primitive type
 

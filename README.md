@@ -4,6 +4,10 @@ Define a bare structured API, useful for interfaces that don't need to be
 portable across multiple platforms.  E.G. embedded applications targeting a
 single architecture.
 
+## Installation
+
+`pipx install struct-writer`
+
 ## Usage
 
 ### Basic Usage
