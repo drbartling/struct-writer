@@ -326,7 +326,7 @@ impl TryFrom<&[u8]> for {group_name} {{
 type Error = ();
 
 fn try_from(value: &[u8]) -> Result<Self, Self::Error> {{
-assert!(input.len() >= {enum_size});
+assert!(value.len() >= {enum_size});
 let repr_int = {repr_type}::from_le_bytes(value[0..{enum_size}].try_into().unwrap());
 match repr_int {{
 """

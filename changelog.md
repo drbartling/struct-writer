@@ -1,6 +1,6 @@
 # struct-writer Change Log
 
-## 0.6.1
+## 0.6.2
 - Check that input slice is at least as large as the tag enum
 
 ## 0.5.4
