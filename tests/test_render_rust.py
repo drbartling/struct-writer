@@ -423,7 +423,7 @@ impl TryFrom<&[u8]> for commands {
 type Error = ();
 
 fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-assert!(value.len() >= 2);
+if !(value.len() >= 2) {return Err(());}
 let repr_int = u16::from_le_bytes(value[0..2].try_into().unwrap());
 match repr_int {
 1 => {

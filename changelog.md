@@ -1,5 +1,8 @@
 # struct-writer Change Log
 
+## 0.6.3
+- Return error instead of asserting when the size is too small
+
 ## 0.6.2
 - Check that input slice is at least as large as the tag enum
 
