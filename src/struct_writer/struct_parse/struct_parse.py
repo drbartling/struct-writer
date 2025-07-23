@@ -318,6 +318,13 @@ def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
         return int.from_bytes(byte_data, endianness, signed=True)
     if "uint" == type_name:
         return int.from_bytes(byte_data, endianness, signed=False)
+    if "bool" == type_name:
+        val = int.from_bytes(byte_data, endianness, signed=False)
+        if (0 == val):
+            return False
+        if (1 == val):
+            return True
+        return f"True(ish): 0x{val:02X}"
     if type_name in {"bytes", "reserved"}:
         return (
             R" ".join([f"{b:02X}" for b in byte_data])

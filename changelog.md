@@ -1,5 +1,8 @@
 # struct-writer Change Log
 
+## 0.6.4
+- Add bool as a primitive type
+
 ## 0.6.3
 - Return error instead of asserting when the size is too small
 

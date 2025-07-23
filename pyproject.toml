@@ -1,12 +1,10 @@
 [project]
-authors = [
-    {name = "Ryan Bartling", email = "ryan.bartling@gmail.com"},
-]
+authors = [{ name = "Ryan Bartling", email = "ryan.bartling@gmail.com" }]
 description = "Generate structured code for APIs and documentation"
 name = "struct_writer"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
     "click>=8.2.0",
     "pyyaml>=6.0.2",
@@ -21,10 +19,7 @@ repository = "https://github.com/drbartling/struct-writer"
 struct-writer = "struct_writer.generate_structured_code:main"
 
 [dependency-groups]
-dev = [
-    "pytest>=8.3.5",
-    "pytest-cov>=6.1.1",
-]
+dev = ["pytest>=8.3.5", "pytest-cov>=6.1.1"]
 
 [tool.coverage.paths]
 source = ["src"]
