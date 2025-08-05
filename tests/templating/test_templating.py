@@ -28,9 +28,11 @@ template_substitute_params = [
 
 
 @pytest.mark.parametrize(
-    "template_str, params, expected", template_substitute_params
+    ("template_str", "params", "expected"), template_substitute_params
 )
-def test_template_substitute(template_str, params, expected):
+def test_template_substitute(
+    template_str: str, params: dict[str], expected: str
+) -> None:
     t = Template(template_str)
 
     result = t.render(params)
@@ -40,7 +42,7 @@ def test_template_substitute(template_str, params, expected):
     assert expected == result
 
 
-def test_template_matches_string_template_interface():
+def test_template_matches_string_template_interface() -> None:
     # Except all variables must be wraped in curly braces
     t = Template("${who} likes ${what}")
     result = t.render(who="tim", what="kung pao")
@@ -57,7 +59,7 @@ def test_template_matches_string_template_interface():
     assert "tim likes ${what}" == result
 
 
-def test_template_allows_periods_and_flattens_dictionaries():
+def test_template_allows_periods_and_flattens_dictionaries() -> None:
     t = Template("Hello Mr. ${name.last}, ${name.first}")
     d = {"name": {"first": "Charles", "last": "Dickens"}}
     result = t.render(d)
@@ -65,14 +67,14 @@ def test_template_allows_periods_and_flattens_dictionaries():
     assert expected == result
 
 
-def test_we_also_flatten_key_word_args():
+def test_we_also_flatten_key_word_args() -> None:
     t = Template("Hello Mr. ${name.last}, ${name.first}")
     result = t.render(name={"first": "Charles", "last": "Dickens"})
     expected = "Hello Mr. Dickens, Charles"
     assert expected == result
 
 
-def test_we_merge_dict_with_kwargs():
+def test_we_merge_dict_with_kwargs() -> None:
     t = Template("Hello Mr. ${name.last}, ${name.first}")
     d = {"name": {"first": "Charles"}}
     result = t.render(d, name={"last": "Dickens"})
@@ -80,7 +82,7 @@ def test_we_merge_dict_with_kwargs():
     assert expected == result
 
 
-def test_we_can_access_object_attributes():
+def test_we_can_access_object_attributes() -> None:
     @dataclass
     class Person:
         name: str = "Bob"
@@ -92,7 +94,7 @@ def test_we_can_access_object_attributes():
     assert expected == result
 
 
-def test_we_can_recursevily_resolve_templates():
+def test_we_can_recursevily_resolve_templates() -> None:
     templates = {
         "full_name": "${person.name.first} ${person.name.last}",
         "last_first": "${person.name.last}, ${person.name.first}",

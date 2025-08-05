@@ -1,12 +1,17 @@
 import logging
 import math
-from typing import Any
+from typing import Any, Literal
 
 _logger = logging.getLogger(__name__)
 
 
-def element_into_bytes(element, definitions, endianness="big", size=None):
-    element_name = list(element.keys())[0]
+def element_into_bytes(
+    element: dict[str, Any],
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"] = "big",
+    size: int | None = None,
+) -> bytes:
+    element_name = next(iter(element.keys()))
     b = b""
     if definition := definitions.get(element_name):
         if "group" == definition["type"]:
@@ -23,9 +28,13 @@ def element_into_bytes(element, definitions, endianness="big", size=None):
     return b
 
 
-def group_into_bytes(element, definitions, endianness):
-    group_name = list(element.keys())[0]
-    group_member_name = list(element[group_name].keys())[0]
+def group_into_bytes(
+    element: dict[str, Any],
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"],
+) -> bytes:
+    group_name = next(iter(element.keys()))
+    group_member_name = next(iter(element[group_name].keys()))
 
     b = b""
 
@@ -44,9 +53,13 @@ def group_into_bytes(element, definitions, endianness):
     return b
 
 
-def structure_into_bytes(element, definitions, endianness):
-    struct_name = list(element.keys())[0]
-    struct_members = list(element.values())[0]
+def structure_into_bytes(
+    element: dict[str, Any],
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"],
+) -> bytes:
+    struct_name = next(iter(element.keys()))
+    struct_members = next(iter(element.values()))
     struct_definition = definitions[struct_name]
 
     b = b""
@@ -61,9 +74,13 @@ def structure_into_bytes(element, definitions, endianness):
     return b
 
 
-def enum_into_bytes(element, definitions, endianness):
-    enum_name = list(element.keys())[0]
-    enum_value = list(element.values())[0]
+def enum_into_bytes(
+    element: dict[str, Any],
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"],
+) -> bytes:
+    enum_name = next(iter(element.keys()))
+    enum_value = next(iter(element.values()))
     enum_definition = definitions[enum_name]
     b = b""
 
@@ -83,10 +100,10 @@ def enum_into_bytes(element, definitions, endianness):
     return b
 
 
-def complete_enums(enum_definition):
+def complete_enums(enum_definition: dict[str, Any]) -> dict[str, Any]:
     if enum_definition.get("complete"):
         return enum_definition
-
+    _logger.debug("Input enum definition: %s", enum_definition)
     counter = 0
     for value in enum_definition["values"]:
         if value.get("value"):
@@ -105,12 +122,17 @@ def complete_enums(enum_definition):
     enum_definition["bits"] = bits
 
     enum_definition["complete"] = True
+    _logger.debug("Completed enum definition: %s", enum_definition)
     return enum_definition
 
 
-def bit_field_into_bytes(element, definitions, endianness):
-    bit_field_name = list(element.keys())[0]
-    bit_field_members = list(element.values())[0]
+def bit_field_into_bytes(
+    element: dict[str, Any],
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"],
+) -> bytes:
+    bit_field_name = next(iter(element.keys()))
+    bit_field_members = next(iter(element.values()))
     bit_field_definition = definitions[bit_field_name]
 
     raw_value = 0
@@ -130,14 +152,17 @@ def bit_field_into_bytes(element, definitions, endianness):
         v = v << member_definition["start"]
 
         raw_value += v
-    b = raw_value.to_bytes(bit_field_definition["size"], endianness)
 
-    return b
+    return raw_value.to_bytes(bit_field_definition["size"], endianness)
 
 
-def primitive_to_bytes(element, endianness, size):
-    type_name = list(element.keys())[0]
-    value = list(element.values())[0]
+def primitive_to_bytes(
+    element: dict[str, Any],
+    endianness: Literal["little", "big"],
+    size: int,
+) -> bytes:
+    type_name = next(iter(element.keys()))
+    value = next(iter(element.values()))
     if "int" == type_name:
         return int(value).to_bytes(size, byteorder=endianness, signed=True)
     if "uint" == type_name:
@@ -158,10 +183,16 @@ def primitive_to_bytes(element, endianness, size):
             b_str = b_str[0:size]
             _logger.warning("Truncating string to %s", b_str)
         return primitive_to_bytes({"bytes": b_str}, endianness, size)
-    raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover
+    msg = f"type: {type_name} is not handled"
+    raise ValueError(msg)  # pragma: no cover
 
 
-def parse_bytes(byte_data, type_name, definitions, endianness="big"):
+def parse_bytes(
+    byte_data: bytes,
+    type_name: str,
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"] = "big",
+) -> dict[str, Any] | str:
     try:
         if definition := definitions.get(type_name):
             definition_type = definition["type"]
@@ -185,11 +216,17 @@ def parse_bytes(byte_data, type_name, definitions, endianness="big"):
         return parse_primitive(byte_data, "bytes", endianness)
 
 
-def parse_struct(byte_data, struct_name, definitions, endianness):
+def parse_struct(
+    byte_data: bytes,
+    struct_name: str,
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"],
+) -> dict[str, Any]:
     definition = definitions[struct_name]
     assert "structure" == definition["type"]
     assert len(byte_data) == definition["size"], (
-        f"Expected {definition['size']} bytes for `{struct_name}`, found {len(byte_data)}"
+        f"Expected {definition['size']} bytes for `{struct_name}`, "
+        f"found {len(byte_data)}"
     )
 
     members = definition.get("members", [])
@@ -207,8 +244,8 @@ def parse_enum(
     byte_data: bytes,
     enum_name: str,
     definitions: dict[str, Any],
-    endianness: str,
-):
+    endianness: Literal["little", "big"],
+) -> str:
     definition = definitions[enum_name]
     assert "enum" == definition["type"]
     values = definition["values"]
@@ -220,15 +257,16 @@ def parse_enum(
         counter = enum_value + 1
         if int_value == enum_value:
             return v["label"]
-    raise ValueError(f"`{int_value}` not found in enum `{enum_name}`")
+    msg = f"`{int_value}` not found in enum `{enum_name}`"
+    raise ValueError(msg)
 
 
 def parse_group(
     byte_data: bytes,
     group_name: str,
     definitions: dict[str, Any],
-    endianness: str,
-):
+    endianness: Literal["little", "big"],
+) -> dict[str, Any]:
     definition = definitions[group_name]
     assert "group" == definition["type"]
 
@@ -237,22 +275,25 @@ def parse_group(
     group_tag = int.from_bytes(group_tag, endianness)
 
     for element_name, element_definition in definitions.items():
-        if element_groups := element_definition.get("groups"):
-            if element_group := element_groups.get(group_name):
-                if element_group["value"] == group_tag:
-                    parsed_element = parse_bytes(
-                        byte_data, element_name, definitions, endianness
-                    )
-                    return {element_name: parsed_element}
-    raise ValueError(f"`{group_tag}` not found in group `{group_name}`")
+        if (
+            (element_groups := element_definition.get("groups"))
+            and (element_group := element_groups.get(group_name))
+            and (element_group["value"] == group_tag)
+        ):
+            parsed_element = parse_bytes(
+                byte_data, element_name, definitions, endianness
+            )
+            return {element_name: parsed_element}
+    msg = f"`{group_tag}` not found in group `{group_name}`"
+    raise ValueError(msg)
 
 
 def parse_bit_field(
     byte_data: bytes,
     bit_field_name: str,
     definitions: dict[str, Any],
-    endianness: str,
-):
+    endianness: Literal["little", "big"],
+) -> dict[str, Any]:
     definition = definitions[bit_field_name]
     assert "bit_field" == definition["type"]
 
@@ -281,48 +322,59 @@ def parse_bit_field(
     return parsed_members
 
 
-def complete_bit_field_member(bit_field_member):
-    try:
-        assert "start" in bit_field_member
-        assert 0 <= bit_field_member["start"]
+def complete_bit_field_member(bit_field_member: dict) -> dict:
+    assert "start" in bit_field_member
+    assert 0 <= bit_field_member["start"]
+    _logger.debug("Input bitfield member: %s", bit_field_member)
 
-        if "last" not in bit_field_member and "bits" not in bit_field_member:
-            bit_field_member["bits"] = 1
+    if "last" not in bit_field_member and "bits" not in bit_field_member:
+        try:
             bit_field_member["last"] = bit_field_member["start"]
-        if "last" not in bit_field_member:
+        except:  # pragma: no cover
+            _logger.exception(str(bit_field_member))
+            raise
+        bit_field_member["bits"] = 1
+    if "last" not in bit_field_member:
+        try:
             bit_field_member["last"] = (
                 bit_field_member["start"] + bit_field_member["bits"] - 1
             )
-        if "bits" not in bit_field_member:
+        except:  # pragma: no cover
+            _logger.exception(str(bit_field_member))
+            raise
+    if "bits" not in bit_field_member:
+        try:
             bit_field_member["bits"] = (
                 bit_field_member["last"] - bit_field_member["start"] + 1
             )
+        except:  # pragma: no cover
+            _logger.exception(str(bit_field_member))
+            raise
+    _logger.debug("Completed bitfield member: %s", bit_field_member)
+    assert (
+        bit_field_member["last"]
+        == bit_field_member["start"] + bit_field_member["bits"] - 1
+    )
+    assert (
+        bit_field_member["bits"]
+        == bit_field_member["last"] - bit_field_member["start"] + 1
+    )
 
-        assert (
-            bit_field_member["last"]
-            == bit_field_member["start"] + bit_field_member["bits"] - 1
-        )
-        assert (
-            bit_field_member["bits"]
-            == bit_field_member["last"] - bit_field_member["start"] + 1
-        )
-
-        return bit_field_member
-    except:  # pragma: no cover
-        _logger.error(str(bit_field_member))
-        raise
+    return bit_field_member
 
 
-def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
+def parse_primitive(  # noqa: PLR0911
+    byte_data: bytes, type_name: str, endianness: Literal["little", "big"]
+) -> int | bool | str:
     if "int" == type_name:
         return int.from_bytes(byte_data, endianness, signed=True)
     if "uint" == type_name:
         return int.from_bytes(byte_data, endianness, signed=False)
     if "bool" == type_name:
         val = int.from_bytes(byte_data, endianness, signed=False)
-        if (0 == val):
+        if 0 == val:
             return False
-        if (1 == val):
+        if 1 == val:
             return True
         return f"True(ish): 0x{val:02X}"
     if type_name in {"bytes", "reserved"}:
@@ -332,4 +384,5 @@ def parse_primitive(byte_data: bytes, type_name: str, endianness: str):
         )
     if "str" == type_name:
         return byte_data.decode("utf-8").strip("\x00")
-    raise ValueError(f"type: {type_name} is not handled")  # pragma: no cover
+    msg = f"type: {type_name} is not handled"
+    raise ValueError(msg)  # pragma: no cover

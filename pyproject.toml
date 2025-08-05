@@ -19,7 +19,12 @@ repository = "https://github.com/drbartling/struct-writer"
 struct-writer = "struct_writer.generate_structured_code:main"
 
 [dependency-groups]
-dev = ["pytest>=8.3.5", "pytest-cov>=6.1.1"]
+dev = [
+    "devtools>=0.12.2",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "ruff>=0.12.7",
+]
 
 [tool.coverage.paths]
 source = ["src"]

@@ -1,9 +1,11 @@
+from typing import Any
+
 import pytest
 
 from struct_writer import struct_parse
 
 
-def example_definitions():
+def example_definitions() -> dict[str, Any]:
     return {
         "file": {
             "brief": "Command set for a thermostat",
@@ -172,7 +174,7 @@ struct_into_bytes_params = [
         },
         (
             b"\x02"
-            + int(75).to_bytes(length=2, byteorder="big", signed=True)
+            + (75).to_bytes(length=2, byteorder="big", signed=True)
             + b"\x01"
         ),
     ),
@@ -184,11 +186,7 @@ struct_into_bytes_params = [
                 }
             }
         },
-        (
-            b"\x03"
-            + "Living Room".encode("utf-8")
-            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-        ),
+        (b"\x03" + b"Living Room" + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
     ),
     (
         {
@@ -198,7 +196,7 @@ struct_into_bytes_params = [
                 }
             }
         },
-        (b"\x03" + "A very long room nam".encode("utf-8")),
+        (b"\x03" + b"A very long room nam"),
     ),
     (
         {
@@ -217,8 +215,8 @@ struct_into_bytes_params = [
 ]
 
 
-@pytest.mark.parametrize("command, expected", struct_into_bytes_params)
-def test_element_into_bytes(command, expected):
+@pytest.mark.parametrize(("command", "expected"), struct_into_bytes_params)
+def test_element_into_bytes(command: dict[str, Any], expected: bytes) -> None:
     definitions = example_definitions()
     result = struct_parse.element_into_bytes(
         command, definitions, endianness="big"
@@ -245,15 +243,17 @@ struct_into_bytes_params = [
 
 
 @pytest.mark.parametrize(
-    "byte_data,type_name, expected", struct_into_bytes_params
+    ("byte_data", "type_name", "expected"), struct_into_bytes_params
 )
-def test_parse_bytes(byte_data, type_name, expected):
+def test_parse_bytes(
+    byte_data: bytes, type_name: str, expected: dict[str, Any]
+) -> None:
     definitions = example_definitions()
     result = struct_parse.parse_bytes(byte_data, type_name, definitions)
     assert expected == result
 
 
-def test_parse_bit_field_enums():
+def test_parse_bit_field_enums() -> None:
     definitions = {
         "a_bit_field": {
             "display_name": "",

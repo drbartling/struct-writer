@@ -3,7 +3,7 @@ from pathlib import Path
 from struct_writer import default_template_c, render_c
 
 
-def test_render_empty_file():
+def test_render_empty_file() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -38,7 +38,7 @@ extern "C" {
     assert expected == result
 
 
-def test_render_file_with_enum():
+def test_render_file_with_enum() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -102,7 +102,7 @@ STATIC_ASSERT_TYPE_SIZE(temperature_units_t, 1);
     assert expected == result
 
 
-def test_render_file_with_structure():
+def test_render_file_with_structure() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -167,7 +167,7 @@ STATIC_ASSERT_TYPE_SIZE(cmd_temperature_set_t, 3);
     assert expected == result
 
 
-def test_render_empty_group():
+def test_render_empty_group() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",

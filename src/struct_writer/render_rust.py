@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from struct_writer.struct_parse import struct_parse
 from struct_writer.templating import Template
@@ -8,7 +9,11 @@ _logger = logging.getLogger(__name__)
 rendered = {"file"}
 
 
-def render_file(definitions, templates, output_file) -> str:
+def render_file(
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+    output_file: str,
+) -> str:
     rendered.clear()
     rendered.add("file")
 
@@ -22,7 +27,10 @@ def render_file(definitions, templates, output_file) -> str:
     return s
 
 
-def render_definitions(definitions, templates):
+def render_definitions(
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     s = ""
     element_names = sorted(definitions.keys())
 
@@ -37,7 +45,11 @@ def render_definitions(definitions, templates):
     return s
 
 
-def render_definition(element_name, definitions, templates):
+def render_definition(
+    element_name: str,
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     if element_name in rendered:
         return ""
     rendered.add(element_name)
@@ -55,7 +67,11 @@ def render_definition(element_name, definitions, templates):
     return s
 
 
-def render_structure(structure_name, definitions, templates):
+def render_structure(
+    structure_name: str,
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     structure = definitions[structure_name]
     assert structure["type"] == "structure"
     structure["name"] = structure_name
@@ -68,8 +84,10 @@ def render_structure(structure_name, definitions, templates):
             try:
                 measured_size += member["size"]
             except KeyError:  # pragma: no cover
-                _logger.error("Failed to render structure `%s`", structure_name)
-                _logger.error(
+                _logger.exception(
+                    "Failed to render structure `%s`", structure_name
+                )
+                _logger.exception(
                     "Member `%s` is missing `size` attriute", member["name"]
                 )
                 raise
@@ -98,7 +116,10 @@ def render_structure(structure_name, definitions, templates):
     return s
 
 
-def render_structure_serialization(structure, templates):
+def render_structure_serialization(
+    structure: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     serialization_lines = []
     start = 0
     for member in structure.get("members", []):
@@ -116,7 +137,10 @@ def render_structure_serialization(structure, templates):
     return "\n".join(serialization_lines)
 
 
-def render_structure_deserialization(structure, templates):
+def render_structure_deserialization(
+    structure: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     serialization_lines = []
     start = 0
     for member in structure.get("members", []):
@@ -134,7 +158,10 @@ def render_structure_deserialization(structure, templates):
     return "\n".join(serialization_lines)
 
 
-def render_structure_members(structure, templates):
+def render_structure_members(
+    structure: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     s = ""
     assert structure["type"] == "structure"
     if members := structure.get("members"):
@@ -145,16 +172,22 @@ def render_structure_members(structure, templates):
     return s
 
 
-def render_structure_member(member, templates):
+def render_structure_member(
+    member: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     member_templates = templates["structure"]["members"].get(
         member["type"], templates["structure"]["members"]["default"]
     )
     member_template = member_templates["definition"]
-    s = Template(member_template).safe_render(member=member)
-    return s
+    return Template(member_template).safe_render(member=member)
 
 
-def render_enum(element_name, definitions, templates):
+def render_enum(
+    element_name: str,
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     enumeration = definitions[element_name]
     assert enumeration["type"] == "enum"
     enumeration["name"] = element_name
@@ -181,27 +214,29 @@ def render_enum(element_name, definitions, templates):
     return s
 
 
-def enum_repr_type(enumeration):
+def enum_repr_type(enumeration: dict[str, Any]) -> str:
     signed = "i" if enum_is_signed(enumeration) else "u"
     bits = enumeration["size"] * 8
-    repr_type = f"{signed}{bits}"
-    return repr_type
+    return f"{signed}{bits}"
 
 
-def enum_is_signed(enumeration):
+def enum_is_signed(enumeration: dict[str, Any]) -> bool:
     return any(v.get("value", 0) < 0 for v in enumeration.get("values", []))
 
 
-def enum_matches(enumeration):
+def enum_matches(enumeration: dict[str, Any]) -> str:
     match_lines = [
         f"{v['value']} => Ok({enumeration['name']}::{v['label']}),"
         for v in enumeration.get("values", [])
     ]
-    s = "\n".join(match_lines)
-    return s
+    return "\n".join(match_lines)
 
 
-def render_enum_values(element_name, definitions, templates):
+def render_enum_values(
+    element_name: str,
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     enumeration = definitions[element_name]
     enumeration["name"] = element_name
     s = ""
@@ -211,14 +246,22 @@ def render_enum_values(element_name, definitions, templates):
     return s
 
 
-def render_enum_value(value_definition, enumeration, templates):
+def render_enum_value(
+    value_definition: dict[str, Any],
+    enumeration: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     assert "value" in value_definition
     return Template(templates["enum"]["valued"]).safe_render(
         enumeration=enumeration, value=value_definition
     )
 
 
-def render_group(group_name, definitions, templates):
+def render_group(  # noqa: PLR0915
+    group_name: str,
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     group = definitions[group_name]
     assert group["type"] == "group"
     group["name"] = group_name
@@ -242,7 +285,7 @@ def render_group(group_name, definitions, templates):
     try:
         enum_size = group["size"]
     except KeyError:  # pragma: no cover
-        _logger.error("Group `%s` is missing `size`", group_name)
+        _logger.exception("Group `%s` is missing `size`", group_name)
         raise
 
     union_size = max(v["size"] for v in group_elements.values())
@@ -266,7 +309,7 @@ pub fn size(&self) -> usize {{
 match self{{
 """
 
-    for k, v in group_elements.items():
+    for v in group_elements.values():
         name = v["groups"][group_name]["name"]
         payload_size = v["size"]
         s += f"{group_name}::{name}(_) => {enum_size + payload_size},\n"
@@ -280,7 +323,7 @@ match self{{
 match tag {{
 """
 
-    for k, v in group_elements.items():
+    for v in group_elements.values():
         name = v["groups"][group_name]["name"]
         tag_value = v["groups"][group_name]["value"]
         payload_size = v["size"]
@@ -327,11 +370,13 @@ type Error = ();
 
 fn try_from(value: &[u8]) -> Result<Self, Self::Error> {{
 if !(value.len() >= {enum_size}) {{return Err(());}}
-let repr_int = {repr_type}::from_le_bytes(value[0..{enum_size}].try_into().unwrap());
+let repr_int = {repr_type}::from_le_bytes(value[0..{enum_size}]
+.try_into()
+.unwrap());
 match repr_int {{
 """
 
-    for k, v in group_elements.items():
+    for v in group_elements.values():
         name = v["groups"][group_name]["name"]
         value = v["groups"][group_name]["value"]
         inner_size = v["size"]
@@ -361,7 +406,11 @@ r.try_into()
     return s
 
 
-def render_bit_field(bit_field_name, definitions, templates):
+def render_bit_field(
+    bit_field_name: str,
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     bit_field = definitions[bit_field_name]
     assert bit_field["type"] == "bit_field"
     bit_field["name"] = bit_field_name
@@ -384,7 +433,11 @@ def render_bit_field(bit_field_name, definitions, templates):
     return s
 
 
-def render_bit_field_members(bit_field_name, definitions, templates):
+def render_bit_field_members(
+    bit_field_name: str,
+    definitions: dict[str, Any],
+    templates: dict[str, Any],
+) -> str:
     bit_field = definitions.get(bit_field_name)
 
     s = ""
@@ -393,7 +446,7 @@ def render_bit_field_members(bit_field_name, definitions, templates):
     bit_position = 0
     for member in members:
         assert bit_position <= member["start"]
-        member = struct_parse.complete_bit_field_member(member)
+        member = struct_parse.complete_bit_field_member(member)  # noqa: PLW2901
         if member["start"] == bit_position:
             s += render_bit_field_member(bit_field, member, templates)
         else:
@@ -413,7 +466,12 @@ def render_bit_field_members(bit_field_name, definitions, templates):
     return s
 
 
-def render_bit_field_reserve(bit_position, bit_field, last_bit, templates):
+def render_bit_field_reserve(
+    bit_position: int,
+    bit_field: dict[str, Any],
+    last_bit: int,
+    templates: dict[str, Any],
+) -> str:
     reserved_member = {
         "name": "reserved",
         "start": bit_position,
@@ -424,7 +482,11 @@ def render_bit_field_reserve(bit_position, bit_field, last_bit, templates):
     return render_bit_field_member(bit_field, reserved_member, templates)
 
 
-def render_bit_field_member(bit_field, member, templates):
+def render_bit_field_member(
+    bit_field: dict[str, Any],
+    member: dict[str, str | int],
+    templates: dict[str, Any],
+) -> str:
     if member_template := templates["bit_field"]["members"].get(member["type"]):
         return Template(member_template).safe_render(
             bit_field=bit_field, member=member

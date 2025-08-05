@@ -1,7 +1,7 @@
 import tomllib
 
 
-def default_template():
+def default_template() -> str:
     template = """
 [file]
 description = '''
@@ -291,5 +291,4 @@ pub ${member.name}: B${member.bits},
 
 """
 
-    template = tomllib.loads(template)
-    return template
+    return tomllib.loads(template)

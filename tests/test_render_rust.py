@@ -3,7 +3,7 @@ from pathlib import Path
 from struct_writer import default_template_rust, render_rust
 
 
-def test_render_empty_file():
+def test_render_empty_file() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -37,7 +37,7 @@ use std::fmt::{Display, Formatter};
     assert expected == result
 
 
-def test_render_file_with_enum():
+def test_render_file_with_enum() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -143,7 +143,7 @@ _ => Err(()),
     assert expected == result
 
 
-def test_render_file_with_structure():
+def test_render_file_with_structure() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -245,7 +245,7 @@ units: u8::from_le_bytes(input[2..3].try_into().unwrap()),
     assert expected == result
 
 
-def test_render_empty_group():
+def test_render_empty_group() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -285,7 +285,7 @@ use std::fmt::{Display, Formatter};
     assert expected == result
 
 
-def test_render_small_group():
+def test_render_small_group() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -424,7 +424,9 @@ type Error = ();
 
 fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
 if !(value.len() >= 2) {return Err(());}
-let repr_int = u16::from_le_bytes(value[0..2].try_into().unwrap());
+let repr_int = u16::from_le_bytes(value[0..2]
+.try_into()
+.unwrap());
 match repr_int {
 1 => {
 let inner_buf: &[u8] = &value[2..];
@@ -600,7 +602,7 @@ units: input[2..3].try_into()?,
     assert expected == result
 
 
-def test_render_bitfield():
+def test_render_bitfield() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",

@@ -76,7 +76,7 @@ def main(
     template_files: list[Path],
     output_file: Path,
     language: str,
-):  # pragma: no cover
+) -> None:  # pragma: no cover
     definitions = {}
     for input_definition in input_definitions:
         definitions = templating.merge(
@@ -103,7 +103,7 @@ def main(
     try:
         s = renderer.render_file(definitions, templates, output_file)
     except Exception:
-        _logger.error(
+        _logger.exception(
             "Failed to render code from file(s) `%s`", input_definitions
         )
         raise
@@ -113,7 +113,7 @@ def main(
         f.write(s)
 
 
-def load_markup_file(markup_file: Path):  # pragma: no cover
+def load_markup_file(markup_file: Path) -> dict:  # pragma: no cover
     extension = markup_file.suffix
     if ".toml" == extension:
         with markup_file.open("rb") as f:
@@ -124,7 +124,8 @@ def load_markup_file(markup_file: Path):  # pragma: no cover
     if extension in {".yml", ".yaml"}:
         with markup_file.open("rb") as f:
             return yaml.full_load(f)
-    raise ValueError(f"Unsupported Extension: {extension}")
+    msg = f"Unsupported Extension: {extension}"
+    raise ValueError(msg)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -1,7 +1,7 @@
 import tomllib
 
 
-def default_template():
+def default_template() -> str:
     template = """\
 [file]
 description = '''
@@ -141,5 +141,4 @@ uint = '''
 uint${bit_field.size*8}_t ${member.name}:${member.bits};
 '''
 """
-    template = tomllib.loads(template)
-    return template
+    return tomllib.loads(template)
