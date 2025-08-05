@@ -161,7 +161,7 @@ def example_definitions() -> dict[str, Any]:
     }
 
 
-struct_into_bytes_params = [
+element_into_bytes_params = [
     ({"commands": {"cmd_reset": {}}}, (b"\x01")),
     (
         {
@@ -215,7 +215,7 @@ struct_into_bytes_params = [
 ]
 
 
-@pytest.mark.parametrize(("command", "expected"), struct_into_bytes_params)
+@pytest.mark.parametrize(("command", "expected"), element_into_bytes_params)
 def test_element_into_bytes(command: dict[str, Any], expected: bytes) -> None:
     definitions = example_definitions()
     result = struct_parse.element_into_bytes(
@@ -224,7 +224,7 @@ def test_element_into_bytes(command: dict[str, Any], expected: bytes) -> None:
     assert expected == result
 
 
-struct_into_bytes_params = [
+parse_bytes_params = [
     ((b""), "cmd_reset", {}),
     (b"\x00", "temperature_units", "c"),
     (b"\x01", "temperature_units", "f"),
@@ -243,7 +243,7 @@ struct_into_bytes_params = [
 
 
 @pytest.mark.parametrize(
-    ("byte_data", "type_name", "expected"), struct_into_bytes_params
+    ("byte_data", "type_name", "expected"), parse_bytes_params
 )
 def test_parse_bytes(
     byte_data: bytes, type_name: str, expected: dict[str, Any]
