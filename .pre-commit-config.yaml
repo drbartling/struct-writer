@@ -2,15 +2,8 @@
 # See https://pre-commit.com/hooks.html for more hooks
 minimum_pre_commit_version: 2.15.0
 repos:
-- repo: https://github.com/pycqa/isort
-  rev: 6.0.1
-  hooks:
-  - id: isort
-    name: isort (python)
-    args: [--profile, black, --filter-files]
-    stages: [pre-commit]
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.14.0
+  rev: v2.15.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix]
@@ -18,9 +11,10 @@ repos:
   - id: pretty-format-toml
     args: [--autofix, --no-sort, --trailing-commas, --indent, '4']
     stages: [pre-commit]
+    exclude: .*\.lock
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.11.12
+    # Ruff version.
+  rev: v0.12.7
   hooks:
   - id: ruff-check
     args: [--fix]
@@ -35,6 +29,10 @@ repos:
   - id: detect-private-key
   - id: end-of-file-fixer
   - id: trailing-whitespace
+- repo: https://github.com/astral-sh/uv-pre-commit
+  rev: 0.8.4
+  hooks:
+  - id: uv-lock
 - repo: local
   hooks:
   - id: test
