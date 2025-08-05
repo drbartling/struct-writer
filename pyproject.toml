@@ -1,5 +1,5 @@
 [project]
-authors = [{ name = "Ryan Bartling", email = "ryan.bartling@gmail.com" }]
+authors = [{name = "Ryan Bartling", email = "ryan.bartling@gmail.com"}]
 description = "Generate structured code for APIs and documentation"
 name = "struct_writer"
 readme = "README.md"
