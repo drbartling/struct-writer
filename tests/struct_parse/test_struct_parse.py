@@ -1,8 +1,11 @@
+import logging
 from typing import Any
 
 import pytest
 
 from struct_writer import struct_parse
+
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 def example_definitions() -> dict[str, Any]:

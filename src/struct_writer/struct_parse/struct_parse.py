@@ -11,6 +11,17 @@ def element_into_bytes(
     endianness: Literal["little", "big"] = "big",
     size: int | None = None,
 ) -> bytes:
+    result = _element_into_bytes(element, definitions, endianness, size)
+    _logger.debug("\ninput: %s\nbytes: %s\n", element, bytes_to_str(result))
+    return result
+
+
+def _element_into_bytes(
+    element: dict[str, Any],
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"] = "big",
+    size: int | None = None,
+) -> bytes:
     element_name = next(iter(element.keys()))
     b = b""
     if definition := definitions.get(element_name):
@@ -193,9 +204,10 @@ def parse_bytes(
     definitions: dict[str, Any],
     endianness: Literal["little", "big"] = "big",
 ) -> dict[str, Any] | str:
-    _logger.debug("%s from %s", type_name, bytes_to_str(byte_data))
     result = _parse_bytes(byte_data, type_name, definitions, endianness)
-    _logger.debug("%s", result)
+    _logger.debug(
+        "\n`%s` from `%s`\n%s", type_name, bytes_to_str(byte_data), result
+    )
     return result
 
 
@@ -337,7 +349,6 @@ def parse_bit_field(
 def complete_bit_field_member(bit_field_member: dict) -> dict:
     assert "start" in bit_field_member
     assert 0 <= bit_field_member["start"]
-    _logger.debug("Input bitfield member: %s", bit_field_member)
 
     if "last" not in bit_field_member and "bits" not in bit_field_member:
         try:
@@ -362,7 +373,6 @@ def complete_bit_field_member(bit_field_member: dict) -> dict:
         except:  # pragma: no cover
             _logger.exception(str(bit_field_member))
             raise
-    _logger.debug("Completed bitfield member: %s", bit_field_member)
     assert (
         bit_field_member["last"]
         == bit_field_member["start"] + bit_field_member["bits"] - 1
