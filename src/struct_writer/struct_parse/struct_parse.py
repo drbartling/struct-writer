@@ -193,6 +193,18 @@ def parse_bytes(
     definitions: dict[str, Any],
     endianness: Literal["little", "big"] = "big",
 ) -> dict[str, Any] | str:
+    _logger.debug("%s from %s", type_name, bytes_to_str(byte_data))
+    result = _parse_bytes(byte_data, type_name, definitions, endianness)
+    _logger.debug("%s", result)
+    return result
+
+
+def _parse_bytes(
+    byte_data: bytes,
+    type_name: str,
+    definitions: dict[str, Any],
+    endianness: Literal["little", "big"] = "big",
+) -> dict[str, Any] | str:
     try:
         if definition := definitions.get(type_name):
             definition_type = definition["type"]
@@ -378,11 +390,12 @@ def parse_primitive(  # noqa: PLR0911
             return True
         return f"True(ish): 0x{val:02X}"
     if type_name in {"bytes", "reserved"}:
-        return (
-            R" ".join([f"{b:02X}" for b in byte_data])
-            + f" (len={len(byte_data)})"
-        )
+        return bytes_to_str(byte_data)
     if "str" == type_name:
         return byte_data.decode("utf-8").strip("\x00")
     msg = f"type: {type_name} is not handled"
     raise ValueError(msg)  # pragma: no cover
+
+
+def bytes_to_str(data: bytes) -> str:
+    return R" ".join([f"{b:02X}" for b in data]) + f" (len={len(data)})"
