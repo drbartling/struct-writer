@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## 0.6.5
+- Clean up linting errors
+- Update dependencies
+
 ## 0.6.4
 - Add bool as a primitive type
 
