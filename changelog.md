@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## 0.7.0
+
+- Log error when bitfield members are too large for the bitfield size
+
 ## 0.6.5
 - Clean up linting errors
 - Update dependencies

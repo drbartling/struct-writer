@@ -148,7 +148,9 @@ def bit_field_into_bytes(
 
     raw_value = 0
     for member_definition in bit_field_definition.get("members", []):
-        complete_bit_field_member(member_definition)
+        complete_bit_field_member(
+            member_definition, bit_field_definition["size"]
+        )
         member_name = member_definition["name"]
         member_value = bit_field_members[member_name]
         member_type = member_definition["type"]
@@ -216,7 +218,7 @@ def _parse_bytes(
     type_name: str,
     definitions: dict[str, Any],
     endianness: Literal["little", "big"] = "big",
-) -> dict[str, Any] | str:
+) -> dict[str, Any] | str | int:
     try:
         if definition := definitions.get(type_name):
             definition_type = definition["type"]
@@ -235,8 +237,9 @@ def _parse_bytes(
                     byte_data, type_name, definitions, endianness
                 )
         return parse_primitive(byte_data, type_name, endianness)
-    except Exception as _e:  # pylint: disable=broad-exception-caught
-        _logger.exception("e")
+    except Exception as e:  # noqa: BLE001
+        msg = f"Failed to parse {type_name}, caused by {e}"
+        _logger.error(msg)
         return parse_primitive(byte_data, "bytes", endianness)
 
 
@@ -324,12 +327,14 @@ def parse_bit_field(
     byte_value: int = int.from_bytes(byte_data, endianness, signed=False)
 
     parsed_members = {}
+    if not definition.get("members", []):
+        _logger.warning("Bitfield `%s` has no members", bit_field_name)
     for member in definition.get("members", []):
         if member_definition := definitions.get(member["type"]):
             is_signed = member_definition.get("signed", False)
         else:
             is_signed = "int" == member["type"]
-        complete_bit_field_member(member)
+        complete_bit_field_member(member, definition["size"])
         mask = int("1" * member["bits"], 2)
         bits_value = byte_value >> member["start"]
         bits_value: int = bits_value & mask
@@ -346,7 +351,9 @@ def parse_bit_field(
     return parsed_members
 
 
-def complete_bit_field_member(bit_field_member: dict) -> dict:
+def complete_bit_field_member(
+    bit_field_member: dict, bit_field_size: int
+) -> dict:
     assert "start" in bit_field_member
     assert 0 <= bit_field_member["start"]
 
@@ -380,6 +387,9 @@ def complete_bit_field_member(bit_field_member: dict) -> dict:
     assert (
         bit_field_member["bits"]
         == bit_field_member["last"] - bit_field_member["start"] + 1
+    )
+    assert bit_field_member["last"] / 8.0 <= bit_field_size, (
+        f"{bit_field_member['last']} bits do not fit in {bit_field_size} byte{'' if bit_field_size == 1 else 's'}"
     )
 
     return bit_field_member

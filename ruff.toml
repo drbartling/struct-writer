@@ -43,6 +43,7 @@ ignore = [
     "S101",  # https://docs.astral.sh/ruff/rules/assert/
     "SIM300",  # https://docs.astral.sh/ruff/rules/yoda-conditions/
     "N818",  # https://docs.astral.sh/ruff/rules/error-suffix-on-exception-name/
+    "TRY400",  # https://docs.astral.sh/ruff/rules/error-instead-of-exception/
 ]
 fixable = ["ALL"]
 unfixable = []

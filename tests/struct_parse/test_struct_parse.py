@@ -332,3 +332,49 @@ def test_parse_bit_field_enums() -> None:
         "4": "d",
     }
     assert expected == result
+
+
+def test_oversized_bits_raise_exception() -> None:
+    definitions = {
+        "a_bit_field": {
+            "display_name": "",
+            "description": "",
+            "type": "bit_field",
+            "size": 1,
+            "members": [
+                {
+                    "name": "1",
+                    "start": 0,
+                    "bits": 4,
+                    "type": "int",
+                    "description": "",
+                },
+                {
+                    "name": "2",
+                    "start": 4,
+                    "bits": 4,
+                    "type": "int",
+                    "description": "",
+                },
+                {
+                    "name": "3",
+                    "start": 8,
+                    "bits": 4,
+                    "type": "int",
+                    "description": "",
+                },
+                {
+                    "name": "4",
+                    "start": 12,
+                    "bits": 4,
+                    "type": "int",
+                    "description": "",
+                },
+            ],
+        },
+    }
+    byte_data = b"\x5a"
+
+    result = struct_parse.parse_bytes(byte_data, "a_bit_field", definitions)
+    expected = "5A (len=1)"
+    assert result == expected

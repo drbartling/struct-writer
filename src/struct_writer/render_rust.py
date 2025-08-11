@@ -438,15 +438,17 @@ def render_bit_field_members(
     definitions: dict[str, Any],
     templates: dict[str, Any],
 ) -> str:
-    bit_field = definitions.get(bit_field_name)
+    bit_field = definitions.get(bit_field_name, {})
+    assert bit_field.get("type") == "bit_field"
 
     s = ""
-    assert bit_field["type"] == "bit_field"
-    members = bit_field["members"]
+    members = bit_field.get("members", [])
     bit_position = 0
     for member in members:
         assert bit_position <= member["start"]
-        member = struct_parse.complete_bit_field_member(member)  # noqa: PLW2901
+        member = struct_parse.complete_bit_field_member(  # noqa: PLW2901
+            member, bit_field["size"]
+        )
         if member["start"] == bit_position:
             s += render_bit_field_member(bit_field, member, templates)
         else:
@@ -478,7 +480,7 @@ def render_bit_field_reserve(
         "last": last_bit,
         "type": "reserved",
     }
-    struct_parse.complete_bit_field_member(reserved_member)
+    struct_parse.complete_bit_field_member(reserved_member, bit_field["size"])
     return render_bit_field_member(bit_field, reserved_member, templates)
 
 
