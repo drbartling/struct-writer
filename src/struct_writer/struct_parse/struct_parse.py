@@ -1,5 +1,6 @@
 import logging
 import math
+import warnings
 from typing import Any, Literal
 
 _logger = logging.getLogger(__name__)
@@ -297,8 +298,15 @@ def parse_group(
     definition = definitions[group_name]
     assert "group" == definition["type"]
 
-    group_tag = byte_data[: definition["size"]]
-    byte_data = byte_data[definition["size"] :]
+    tag_start = definition.get("offset", 0)
+    warn_deprecated_offset(group_name, tag_start)
+    tag_end = tag_start + definition["size"]
+    group_tag = byte_data[tag_start:tag_end]
+    _logger.debug("group_tag: `%s`", group_tag)
+
+    byte_data = byte_data[:tag_start] + byte_data[tag_end:]
+    _logger.debug("group byte_data: `%s`", byte_data)
+
     group_tag = int.from_bytes(group_tag, endianness)
 
     for element_name, element_definition in definitions.items():
@@ -313,6 +321,28 @@ def parse_group(
             return {element_name: parsed_element}
     msg = f"`{group_tag}` not found in group `{group_name}`"
     raise ValueError(msg)
+
+
+def warn_deprecated_offset(
+    group_name: str,
+    tag_start: int,
+    _warned: dict = {},  # noqa: B006
+) -> bool:
+    if _warned.get(group_name, False):
+        return False
+
+    if 0 == tag_start:
+        return False
+
+    _warned[group_name] = True
+    warnings.warn(
+        f"Group `{group_name}` tag has an offset of {tag_start} bytes.  "
+        "It's not recommended to do this except for backwards "
+        "compatibility reasons",
+        category=DeprecationWarning,
+        stacklevel=5,
+    )
+    return True
 
 
 def parse_bit_field(
@@ -399,6 +429,7 @@ def parse_primitive(  # noqa: PLR0911
     byte_data: bytes, type_name: str, endianness: Literal["little", "big"]
 ) -> int | bool | str:
     if "int" == type_name:
+        _logger.debug("byte_data: `%s`", byte_data)
         return int.from_bytes(byte_data, endianness, signed=True)
     if "uint" == type_name:
         return int.from_bytes(byte_data, endianness, signed=False)

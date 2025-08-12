@@ -3,6 +3,7 @@
 ## 0.7.0
 
 - Log error when bitfield members are too large for the bitfield size
+- Allow offset group tag to cover compatibility with pre-existing structures
 
 ## 0.6.5
 - Clean up linting errors

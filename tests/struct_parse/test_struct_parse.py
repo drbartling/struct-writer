@@ -1,4 +1,5 @@
 import logging
+import struct
 from typing import Any
 
 import pytest
@@ -377,4 +378,111 @@ def test_oversized_bits_raise_exception() -> None:
 
     result = struct_parse.parse_bytes(byte_data, "a_bit_field", definitions)
     expected = "5A (len=1)"
+    assert result == expected
+
+
+def test_offset_discriminator_in_group() -> None:
+    """
+    In most cases we want the tag in a group to be the first n bytes encountered
+    in the stream. so in the byte stream: b'\x00\x0a\x0b\x0c' the first byte
+    (b'\x00') would be the tag for the tagged union (or discriminator for
+    discriminated type).  https://en.wikipedia.org/wiki/Tagged_union
+
+    However some structures might be defined in a way that this doesn't work. In
+    these cases where we need to maintain backwards compatibility with types
+    defined where the tag is embedded within the stream, we can define an
+    offset.  So if we set the offset to 2, then the third byte (zero indexed 2)
+    would be the tag (b'\x0b')
+    """
+
+    definitions = {
+        "my_tagged_union": {
+            "display_name": "Tagged Union",
+            "description": "Simple Tagged Union",
+            "type": "group",
+            "size": 1,
+        },
+        "unsigned_num": {
+            "display_name": "Unsigned Number",
+            "description": "A 7 byte Unsigned Number",
+            "type": "structure",
+            "size": 7,
+            "members": [
+                {
+                    "name": "value_1",
+                    "size": 3,
+                    "type": "uint",
+                    "description": "7 byte Unsigned Number",
+                },
+                {
+                    "name": "value_2",
+                    "size": 4,
+                    "type": "uint",
+                    "description": "7 byte Unsigned Number",
+                },
+            ],
+            "groups": {"my_tagged_union": {"value": 0x00, "name": "unsigned"}},
+        },
+        "signed_num": {
+            "display_name": "Signed Number",
+            "description": "A 7 byte Signed Number",
+            "type": "structure",
+            "size": 7,
+            "members": [
+                {
+                    "name": "value_1",
+                    "size": 3,
+                    "type": "int",
+                    "description": "7 byte Signed Number",
+                },
+                {
+                    "name": "value_2",
+                    "size": 4,
+                    "type": "int",
+                    "description": "7 byte Signed Number",
+                },
+            ],
+            "groups": {"my_tagged_union": {"value": 0x01, "name": "signed"}},
+        },
+    }
+
+    # These shows the normal and preferred case
+    byte_data = struct.pack(">II", 0x01FF_FFFF, 0xFFFF_FFFF)
+    assert byte_data == b"\x01\xff\xff\xff\xff\xff\xff\xff"
+    result = struct_parse.parse_bytes(byte_data, "my_tagged_union", definitions)
+    expected = {"signed_num": {"value_1": -1, "value_2": -1}}
+    assert result == expected
+
+    byte_data = struct.pack(">II", 0x00FF_FFFF, 0xFFFF_FFFF)
+    assert byte_data == b"\x00\xff\xff\xff\xff\xff\xff\xff"
+    result = struct_parse.parse_bytes(byte_data, "my_tagged_union", definitions)
+    expected = {"unsigned_num": {"value_1": 16777215, "value_2": 4294967295}}
+    assert result == expected
+
+    # While this shows the case where the tag is embedded in the middle of the
+    # struct
+    definitions["my_tagged_union"]["offset"] = 3
+    byte_data = struct.pack("<II", 0x01FF_FFFF, 0xFFFF_FFFF)
+    assert byte_data == b"\xff\xff\xff\x01\xff\xff\xff\xff"
+    with pytest.deprecated_call():
+        # The first time any group is parsed, a warning will be emitted
+        result = struct_parse.parse_bytes(
+            byte_data, "my_tagged_union", definitions
+        )
+    expected = {"signed_num": {"value_1": -1, "value_2": -1}}
+    assert result == expected
+
+    byte_data = struct.pack("<II", 0x00FF_FFFF, 0xFFFF_FFFF)
+    assert byte_data == b"\xff\xff\xff\x00\xff\xff\xff\xff"
+    # Subsequent attempts to parse the same struct will not emit a warning.
+    result = struct_parse.parse_bytes(byte_data, "my_tagged_union", definitions)
+    expected = {"unsigned_num": {"value_1": 16777215, "value_2": 4294967295}}
+    assert result == expected
+
+    byte_data = struct.pack("<II", 0x0012_34_56, 0x789A_BCDE)
+    assert byte_data == b"\x56\x34\x12\x00\xde\xbc\x9a\x78"
+    result = struct_parse.parse_bytes(
+        byte_data, "my_tagged_union", definitions, endianness="little"
+    )
+    expected = {"unsigned_num": {"value_1": 0x12_3456, "value_2": 0x789A_BCDE}}
     assert result == expected

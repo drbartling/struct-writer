@@ -16,15 +16,15 @@ type = "structure"
 groups.commands = {value = 1, name = "reset"}
 
 [cmd_temperature_set]
-description = "Request a change in temperature"
 display_name = "Request temperature change"
+description = "Request a change in temperature"
+type = "structure"
+size = 4
 members = [
     {name = "temperature", size = 2, type = "int", description = "Desired temperature"},
     {name = "units", size = 1, type = "temperature_units", description = "Selected temperature unit"},
     {name = "reserved", size = 1, type = "bool", description = "reserved"},
 ]
-size = 4
-type = "structure"
 groups.commands = {value = 2, name = "temperature_set"}
 
 [temperature_units]
