@@ -114,10 +114,10 @@ def render_structure_members(
     definitions: dict[str, Any],
     templates: dict[str, Any],
 ) -> str:
-    structure = definitions.get(structure_name)
+    structure = definitions.get(structure_name, {})
+    assert structure["type"] == "structure"
 
     s = ""
-    assert structure["type"] == "structure"
     if members := structure.get("members"):
         for member in members:
             s += render_structure_member(member, templates)
@@ -340,15 +340,15 @@ def render_bit_field_members(
     definitions: dict[str, Any],
     templates: dict[str, Any],
 ) -> str:
-    bit_field = definitions.get(bit_field_name)
+    bit_field = definitions.get(bit_field_name, {})
+    assert bit_field["type"] == "bit_field"
 
     s = ""
-    assert bit_field["type"] == "bit_field"
     members = bit_field["members"]
     bit_position = 0
     for member in members:
         assert bit_position <= member["start"]
-        member = complete_bit_field_member(member)  # noqa: PLW2901
+        member = complete_bit_field_member(member, bit_field["size"])  # noqa: PLW2901
         if member["start"] == bit_position:
             s += render_bit_field_member(bit_field, member, templates)
         else:
@@ -369,10 +369,10 @@ def render_bit_field_reserve(
     reserved_member = {
         "name": "reserved",
         "start": bit_position,
-        "last": member["start"] - 1,
+        "last": int(member["start"]) - 1,
         "type": "reserved",
     }
-    complete_bit_field_member(reserved_member)
+    complete_bit_field_member(reserved_member, bit_field["size"])
     return render_bit_field_member(bit_field, reserved_member, templates)
 
 

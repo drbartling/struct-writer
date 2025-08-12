@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## 0.7.1
+
+- Fix missing use of bit_field_size
+
 ## 0.7.0
 
 - Log error when bitfield members are too large for the bitfield size

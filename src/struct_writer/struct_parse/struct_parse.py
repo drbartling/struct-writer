@@ -206,7 +206,7 @@ def parse_bytes(
     type_name: str,
     definitions: dict[str, Any],
     endianness: Literal["little", "big"] = "big",
-) -> dict[str, Any] | str:
+) -> dict[str, Any] | str | int:
     result = _parse_bytes(byte_data, type_name, definitions, endianness)
     _logger.debug(
         "\n`%s` from `%s`\n%s", type_name, bytes_to_str(byte_data), result

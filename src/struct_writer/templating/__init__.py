@@ -47,7 +47,7 @@ class Template:
 
         return result
 
-    def safe_render(self, __mapping=_sentinel_dict, /, **kwds) -> str | None:  # noqa: ANN001, ANN003
+    def safe_render(self, __mapping=_sentinel_dict, /, **kwds) -> str:  # noqa: ANN001, ANN003
         # Using the fact that a default dict is a fixed object to detect if an
         # unnamed mapping dictioanry was passed in.
         mapping = self._mapping(__mapping, **kwds)
@@ -66,7 +66,7 @@ class Template:
                 return "$"
             return match_object.group()
 
-        result = None
+        result = ""
         template = self.template
         while result != template:
             template = result or self.template
