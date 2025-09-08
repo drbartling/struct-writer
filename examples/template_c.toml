@@ -60,6 +60,22 @@ uint = '''
 /// ${member.description}
 uint${member.size*8}_t ${member.name};
 '''
+void_pointer = '''
+/// ${member.description}
+void * ${member.name};
+'''
+bool = '''
+/// ${member.description}
+bool ${member.name}[${member.size}];
+'''
+bytes = '''
+/// ${member.description}
+uint8_t ${member.name}[${member.size}];
+'''
+str = '''
+/// ${member.description}
+char ${member.name}[${member.size}];
+'''
 union.footer = '''
 } ${union.name};
 '''

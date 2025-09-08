@@ -1,6 +1,24 @@
 from pathlib import Path
 
-from struct_writer import default_template_c, render_c
+from struct_writer import default_template_c, generate_structured_code, render_c
+
+
+def test_default_template() -> None:
+    # We want to ensure that the default template we use for c is the same
+    # as the example we give in documentation
+
+    this_path = Path(__file__).resolve()
+    project_root = this_path / "../.."
+    project_root = project_root.resolve()
+    template_example = project_root / "examples/template_c.toml"
+    assert template_example.is_file()
+
+    example_template = generate_structured_code.load_markup_file(
+        template_example
+    )
+    default_template = default_template_c.default_template()
+
+    assert example_template == default_template
 
 
 def test_render_empty_file() -> None:
