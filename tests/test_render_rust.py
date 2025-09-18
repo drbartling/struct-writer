@@ -48,11 +48,21 @@ mod my_file {
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
 
 use modular_bitfield::prelude::*;
-
 #[cfg(feature = "std")]
-use std::fmt::{Display, Formatter};
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
 
 }
 """
@@ -101,20 +111,31 @@ mod my_file {
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
 
 use modular_bitfield::prelude::*;
-
 #[cfg(feature = "std")]
-use std::fmt::{Display, Formatter};
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
 
 pub type temperature_units_slice = [u8;  1];
 // Temperature units
 // The temperature units
 #[derive(
     Default, Debug, Clone, PartialEq, Copy,
-)]#[derive(BitfieldSpecifier)]
+)]#[derive(Specifier)]
 #[bits = 1]
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum temperature_units {
 #[default]
 /// Degrees Celsius
@@ -208,11 +229,21 @@ mod my_file {
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
 
 use modular_bitfield::prelude::*;
-
 #[cfg(feature = "std")]
-use std::fmt::{Display, Formatter};
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
 
 pub type cmd_temperature_set_slice = [u8;  3];
 // Request temperature change
@@ -255,8 +286,8 @@ fn try_from(input: &[u8]) -> Result<Self, ()> {
 assert!(input.len() >= size_of::<cmd_temperature_set_slice>());
 
 Ok(Self{
-temperature: i16::from_le_bytes(input[0..2].try_into().unwrap()),
-units: u8::from_le_bytes(input[2..3].try_into().unwrap()),
+temperature: i16::from_le_bytes(input[0..2].try_into().map_err(|_| ())?),
+units: u8::from_le_bytes(input[2..3].try_into().map_err(|_| ())?),
 })
 
 }
@@ -296,11 +327,21 @@ mod my_file {
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
 
 use modular_bitfield::prelude::*;
-
 #[cfg(feature = "std")]
-use std::fmt::{Display, Formatter};
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
 
 }
 """
@@ -393,17 +434,29 @@ mod my_file {
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
 
 use modular_bitfield::prelude::*;
-
 #[cfg(feature = "std")]
-use std::fmt::{Display, Formatter};
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
+
 
 pub type commands_slice = [u8;  5];
 // Thermostat command
 // Debug commands for thermostat
 #[repr(u16)]
 #[derive(Debug, Clone, PartialEq, )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum commands {
 reset(cmd_reset) = 1,
 temperature_set(cmd_temperature_set) = 2,
@@ -521,9 +574,10 @@ pub type temperature_units_slice = [u8;  1];
 // The temperature units
 #[derive(
     Default, Debug, Clone, PartialEq, Copy,
-)]#[derive(BitfieldSpecifier)]
+)]#[derive(Specifier)]
 #[bits = 1]
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum temperature_units {
 #[default]
 /// Degrees Celsius
@@ -612,7 +666,7 @@ fn try_from(input: &[u8]) -> Result<Self, ()> {
 assert!(input.len() >= size_of::<cmd_temperature_set_slice>());
 
 Ok(Self{
-temperature: i16::from_le_bytes(input[0..2].try_into().unwrap()),
+temperature: i16::from_le_bytes(input[0..2].try_into().map_err(|_| ())?),
 units: input[2..3].try_into()?,
 })
 
@@ -669,11 +723,21 @@ mod my_file {
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
 
 use modular_bitfield::prelude::*;
-
 #[cfg(feature = "std")]
-use std::fmt::{Display, Formatter};
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
 
 pub type cmd_temperature_set_slice = [u8;  2];
 // Request temperature change
@@ -711,7 +775,7 @@ impl TryFrom<&[u8]> for cmd_temperature_set {
 type Error = ();
 fn try_from(input: &[u8]) -> Result<Self, ()> {
 assert!(input.len() >= size_of::<cmd_temperature_set_slice>());
-let a: cmd_temperature_set_slice = input.try_into().unwrap();
+let a: cmd_temperature_set_slice = input.try_into().map_err(|_| ())?;
 Ok(Self::from_bytes(a))
 }
 }

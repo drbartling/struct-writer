@@ -15,7 +15,8 @@ install_uv:
     @powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 test: check
-    @uv run pytest
+    @uv run pytest -vvv
+    @cd examples/rust && cargo test --offline
 
 check: format
     @uv run ruff check --exit-zero

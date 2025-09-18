@@ -20,11 +20,21 @@ mod ${out_file.stem.lower()} {
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
 
 use modular_bitfield::prelude::*;
-
 #[cfg(feature = "std")]
-use std::fmt::{Display, Formatter};
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
 
 '''
 footer = '''
@@ -39,11 +49,12 @@ pub type ${enumeration.name}_slice = [u8;  ${enumeration.size}];
 #[derive(
     Default, Debug, Clone, PartialEq, Copy,
 )]${enumeration.unsigned_header}
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ${enumeration.name} {
 #[default]
 '''
 unsigned_header = '''
-#[derive(BitfieldSpecifier)]
+#[derive(Specifier)]
 #[bits = ${enumeration.bits}]
 '''
 footer = '''
@@ -93,13 +104,14 @@ ${value.label} = ${value.value:#x},
 
 [group]
 tag_name = '${group.name}_tag'
-
 header = '''
+
 pub type ${group.name}_slice = [u8;  ${group.max_size}];
 // ${group.display_name}
 // ${group.description}
 #[repr(${group.repr_type})]
 #[derive(Debug, Clone, PartialEq, )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ${group.name} {
 '''
 
@@ -108,6 +120,7 @@ header = '''
 // ${union.display_name}
 // ${union.description}
 #[derive(Clone, PartialEq, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ${union.name}{
 '''
 footer = '''
@@ -193,7 +206,7 @@ definition = '''
 pub ${member.name}: i${member.size*8},
 '''
 serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name}.to_le_bytes());'
-deserialize = '${member.name}: i${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().unwrap()),'
+deserialize = '${member.name}: i${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().map_err(|_| ())?),'
 
 [structure.members.uint]
 definition = '''
@@ -201,7 +214,7 @@ definition = '''
 pub ${member.name}: u${member.size*8},
 '''
 serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name}.to_le_bytes());'
-deserialize = '${member.name}: u${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().unwrap()),'
+deserialize = '${member.name}: u${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().map_err(|_| ())?),'
 
 [structure.members.bool]
 definition = '''
@@ -214,14 +227,16 @@ deserialize = '${member.name}: if input[${buffer.start}] == 0 {false} else {true
 [structure.members.bytes]
 definition = '''
 /// ${member.description}
+#[cfg_attr(feature = "serde", serde(with = "BigArray"))]
 pub ${member.name}: [u8; ${member.size}],
 '''
 serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name});'
-deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into().unwrap(),'
+deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into().map_err(|_| ())?,'
 
 [structure.members.reserved]
 definition = '''
 /// ${member.description}
+#[cfg_attr(feature = "serde", serde(with = "BigArray"))]
 ${member.name}: [u8; ${member.size}],
 '''
 serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&[0_u8;${member.size}]);'
@@ -230,10 +245,31 @@ deserialize = '${member.name}: [0_u8;${member.size}],'
 [structure.members.str]
 definition = '''
 /// ${member.description}
-pub ${member.name}: [u8; ${member.size}],
+#[cfg(feature = "std")]
+pub ${member.name}: String,
+#[cfg(not(feature = "std"))]
+pub ${member.name}: String<${member.size}>,
 '''
-serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name});'
-deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into().unwrap(),'
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(value.${member.name}.as_bytes());'
+deserialize = '''
+#[cfg(feature = "std")]
+${member.name}:  str::from_utf8(
+    &input[${buffer.start}..${buffer.end}]
+        .split(|b| *b == 0)
+        .next()
+        .ok_or(())?
+).map_err(|_| ())?
+.to_owned(),
+#[cfg(not(feature = "std"))]
+${member.name}:  String::<${member.size}>::try_from(
+    str::from_utf8(
+        &input[${buffer.start}..${buffer.end}]
+            .split(|b| *b == 0)
+            .next()
+            .ok_or(())?
+    ).map_err(|_| ())?
+).map_err(|_| ())?,
+'''
 
 [bit_field]
 header = '''
@@ -267,7 +303,7 @@ impl TryFrom<&[u8]> for ${bit_field.name} {
 type Error = ();
 fn try_from(input: &[u8]) -> Result<Self, ()> {
 assert!(input.len() >= size_of::<${bit_field.name}_slice>());
-let a: ${bit_field.name}_slice = input.try_into().unwrap();
+let a: ${bit_field.name}_slice = input.try_into().map_err(|_| ())?;
 Ok(Self::from_bytes(a))
 }
 }
