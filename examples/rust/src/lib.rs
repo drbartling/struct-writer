@@ -15,4 +15,14 @@ mod tests {
         let back_to_command: commands = result.try_into().unwrap();
         assert_eq!(back_to_command, input);
     }
+
+    #[rstest]
+    fn test_serialize_bitfields() {
+        let state = hvac_state::new()
+            .with_ac_enabled(true)
+            .with_units(temperature_units::f);
+        let result = format!("{}", serde_json::to_string(&state).unwrap());
+        let expected = "{\"bytes\":[20]}".to_owned();
+        assert_eq!(expected, result);
+    }
 }

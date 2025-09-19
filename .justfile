@@ -32,7 +32,7 @@ loop:
         --clear=reset \
         --restart  \
         --debounce 500 \
-        --exts py,yml,toml,ini,bin \
+        --exts py,yml,toml,ini,bin,rs \
         just test
 
 setup:
