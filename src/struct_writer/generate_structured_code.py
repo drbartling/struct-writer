@@ -2,6 +2,7 @@ import json
 import logging
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import click
 import yaml
@@ -113,7 +114,7 @@ def main(
         f.write(s)
 
 
-def load_markup_file(markup_file: Path) -> dict:  # pragma: no cover
+def load_markup_file(markup_file: Path) -> dict[str, Any]:  # pragma: no cover
     extension = markup_file.suffix
     if ".toml" == extension:
         with markup_file.open("rb") as f:
