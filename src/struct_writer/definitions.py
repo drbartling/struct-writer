@@ -293,6 +293,7 @@ class Group(DefinedType):
     """
 
     name: str
+    display_name: str
     description: str
     size: int
     members: list[GroupMember]
@@ -313,6 +314,7 @@ class Group(DefinedType):
         group_definition = definitions[group_name]
         return cls(
             name=group_name,
+            display_name=group_definition["display_name"],
             description=group_definition["description"],
             size=group_definition["size"],
             members=members,

@@ -331,6 +331,7 @@ type_definitions_params = [
             {
                 "small_group": Group(
                     name="small_group",
+                    display_name="Small Group",
                     description="A Small Example Group",
                     size=1,
                     members=[
@@ -423,6 +424,7 @@ def test_example_file() -> None:
             ),
             "commands": Group(
                 name="commands",
+                display_name="Thermostat command",
                 description="Debug commands for thermostat",
                 size=2,
                 members=[
