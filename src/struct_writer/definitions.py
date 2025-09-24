@@ -320,7 +320,29 @@ class Group(DefinedType):
 
 
 @dataclass
+class FileDescription:
+    brief: str
+    description: str
+
+    @override
+    def __repr__(self) -> str:
+        return f"{self.__class__!s}({self.__dict__!r})"
+
+    @classmethod
+    def from_dict(cls, definition: dict[str, Any]) -> Self:
+        return cls(
+            brief=definition["brief"],
+            description=definition["description"],
+        )
+
+    @classmethod
+    def empty(cls) -> Self:
+        return cls(brief="", description="")
+
+
+@dataclass
 class TypeDefinitions:
+    file_info: FileDescription
     definitions: dict[str, DefinedType]
 
     @override
@@ -330,7 +352,8 @@ class TypeDefinitions:
     @classmethod
     def from_dict(cls, definitions: dict[str, Any]) -> Self:
         result: dict[str, DefinedType] = {}
-        _file_info = definitions.pop("file", None)
+        file_info = definitions.pop("file", {"brief": "", "description": ""})
+        file_info = FileDescription.from_dict(file_info)
         for k, v in definitions.items():
             definition_type: str = v.get("type")
             match definition_type:
@@ -345,4 +368,4 @@ class TypeDefinitions:
                 case _:
                     raise InvalidType(k, definition_type)
 
-        return cls(result)
+        return cls(file_info, result)

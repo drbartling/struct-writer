@@ -9,6 +9,7 @@ from struct_writer.definitions import (
     BitFieldMember,
     Enumeration,
     EnumValue,
+    FileDescription,
     Group,
     GroupMember,
     ParseFailed,
@@ -117,6 +118,7 @@ type_definitions_params = [
             }
         },
         TypeDefinitions(
+            FileDescription.empty(),
             {
                 "empty_struct": Structure(
                     name="empty_struct",
@@ -125,7 +127,7 @@ type_definitions_params = [
                     size=0,
                     members=[],
                 ),
-            }
+            },
         ),
     ),
     (
@@ -147,6 +149,7 @@ type_definitions_params = [
             }
         },
         TypeDefinitions(
+            FileDescription.empty(),
             {
                 "simple_struct": Structure(
                     name="simple_struct",
@@ -162,7 +165,7 @@ type_definitions_params = [
                         )
                     ],
                 )
-            }
+            },
         ),
     ),
     (
@@ -190,6 +193,7 @@ type_definitions_params = [
             }
         },
         TypeDefinitions(
+            FileDescription.empty(),
             {
                 "an_enum": Enumeration(
                     name="an_enum",
@@ -211,7 +215,7 @@ type_definitions_params = [
                         ),
                     ],
                 )
-            }
+            },
         ),
     ),
     (
@@ -225,6 +229,7 @@ type_definitions_params = [
             },
         },
         TypeDefinitions(
+            FileDescription.empty(),
             {
                 "a_bit_field": BitField(
                     description="An example bit field",
@@ -233,7 +238,7 @@ type_definitions_params = [
                     name="a_bit_field",
                     size=0,
                 )
-            }
+            },
         ),
     ),
     (
@@ -265,6 +270,7 @@ type_definitions_params = [
             },
         },
         TypeDefinitions(
+            FileDescription.empty(),
             {
                 "a_bit_field": BitField(
                     description="An example bit field",
@@ -290,7 +296,7 @@ type_definitions_params = [
                     name="a_bit_field",
                     size=1,
                 )
-            }
+            },
         ),
     ),
     (
@@ -321,6 +327,7 @@ type_definitions_params = [
             },
         },
         TypeDefinitions(
+            FileDescription.empty(),
             {
                 "small_group": Group(
                     name="small_group",
@@ -346,7 +353,7 @@ type_definitions_params = [
                         )
                     ],
                 ),
-            }
+            },
         ),
     ),
 ]
@@ -376,6 +383,10 @@ def test_example_file() -> None:
     debug(result)
 
     expected = TypeDefinitions(
+        FileDescription(
+            "Command set for a thermostat",
+            "Provides basic debug commands for a thermostat.  Allows for both imperial and metric units.",
+        ),
         {
             "cmd_reset": Structure(
                 description="Request a software reset",
@@ -503,67 +514,7 @@ def test_example_file() -> None:
                 display_name="Temperature Units",
                 size=1,
             ),
-        }
+        },
     )
     debug(expected)
     assert expected == result
-    _expected = TypeDefinitions(
-        {
-            "hvac_state": BitField(
-                description="State flags for HVAC",
-                display_name="HVAC State",
-                size=1,
-                name="hvac_state",
-                members=[
-                    BitFieldMember(
-                        name="fan_enabled",
-                        start=0,
-                        end=1,
-                        bits=1,
-                        type="bool",
-                        description="Set to true when fan is enabled",
-                    ),
-                    BitFieldMember(
-                        name="reserved_1",
-                        start=1,
-                        end=2,
-                        bits=1,
-                        type="reserved",
-                        description="Reserved",
-                    ),
-                    BitFieldMember(
-                        name="ac_enabled",
-                        start=2,
-                        end=3,
-                        bits=1,
-                        type="bool",
-                        description="Set to true when air conditioning is enabled",
-                    ),
-                    BitFieldMember(
-                        name="heat_enabled",
-                        start=3,
-                        end=4,
-                        bits=1,
-                        type="bool",
-                        description="Set to true when heater is enabled",
-                    ),
-                    BitFieldMember(
-                        name="units",
-                        start=4,
-                        end=5,
-                        bits=1,
-                        type="temperature_units",
-                        description="Units used in thermostat",
-                    ),
-                    BitFieldMember(
-                        name="reserved_5",
-                        start=5,
-                        end=8,
-                        bits=3,
-                        type="reserved",
-                        description="Reserved",
-                    ),
-                ],
-            )
-        }
-    )
