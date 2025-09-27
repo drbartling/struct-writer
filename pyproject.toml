@@ -20,6 +20,7 @@ struct-writer = "struct_writer.generate_structured_code:main"
 
 [dependency-groups]
 dev = [
+    "basedpyright>=1.31.5",
     "devtools>=0.12.2",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
@@ -48,8 +49,9 @@ addopts = [
     "--cov",
     "--durations=5",
     "--ignore=acceptance_test",
+    "--doctest-modules",
 ]
-testpaths = ["tests"]
+testpaths = ["tests", "src"]
 
 [build-system]
 build-backend = "hatchling.build"

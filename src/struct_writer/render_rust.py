@@ -1,6 +1,14 @@
 import logging
 from typing import Any
 
+from struct_writer.definitions import (
+    BitField,
+    DefinedType,
+    Enumeration,
+    Group,
+    Structure,
+    TypeDefinitions,
+)
 from struct_writer.struct_parse import struct_parse
 from struct_writer.templating import Template
 
@@ -10,44 +18,46 @@ rendered = {"file"}
 
 
 def render_file(
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
     output_file: str,
 ) -> str:
     rendered.clear()
     rendered.add("file")
 
+    parsed_definitions = TypeDefinitions.from_dict(definitions)
+
     s = ""
     s += Template(templates["file"]["description"]).safe_render(
-        file=definitions.get("file", "")
+        file=parsed_definitions.file_info
     )
     s += Template(templates["file"]["header"]).safe_render(out_file=output_file)
-    s += render_definitions(definitions, templates)
+    s += render_definitions(parsed_definitions, templates)
     s += Template(templates["file"]["footer"]).safe_render(out_file=output_file)
     return s
 
 
 def render_definitions(
-    definitions: dict[str, Any],
+    definitions: TypeDefinitions,
     templates: dict[str, Any],
 ) -> str:
     s = ""
-    element_names = sorted(definitions.keys())
+    element_names = sorted(definitions.definitions.keys())
 
     group_names = {
-        k for k, v in definitions.items() if "group" == v.get("type")
+        k for k, v in definitions.definitions.items() if isinstance(v, Group)
     }
     for element_name in group_names:
-        s += render_definition(element_name, definitions, templates)
+        s += render_definition(element_name, definitions.definitions, templates)
 
     for element_name in element_names:
-        s += render_definition(element_name, definitions, templates)
+        s += render_definition(element_name, definitions.definitions, templates)
     return s
 
 
 def render_definition(
     element_name: str,
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
     if element_name in rendered:
@@ -55,13 +65,13 @@ def render_definition(
     rendered.add(element_name)
     definition = definitions[element_name]
     s = ""
-    if "structure" == definition["type"]:
+    if isinstance(definition, Structure):
         s += render_structure(element_name, definitions, templates)
-    if "enum" == definition["type"]:
+    elif isinstance(definition, Enumeration):
         s += render_enum(element_name, definitions, templates)
-    if "group" == definition["type"]:
+    elif isinstance(definition, Group):
         s += render_group(element_name, definitions, templates)
-    if "bit_field" == definition["type"]:
+    elif isinstance(definition, BitField):
         s += render_bit_field(element_name, definitions, templates)
 
     return s
@@ -69,45 +79,36 @@ def render_definition(
 
 def render_structure(
     structure_name: str,
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
-    structure = definitions[structure_name]
-    assert structure["type"] == "structure"
-    structure["name"] = structure_name
-    expected_size = structure["size"]
+    structure = definitions[structure_name].as_structure()
+    expected_size = structure.size
     measured_size = 0
     s = ""
 
-    if members := structure.get("members"):
+    if members := structure.members:
         for member in members:
-            try:
-                measured_size += member["size"]
-            except KeyError:  # pragma: no cover
-                _logger.exception(
-                    "Failed to render structure `%s`", structure_name
-                )
-                _logger.exception(
-                    "Member `%s` is missing `size` attriute", member["name"]
-                )
-                raise
-            member_name = member["type"]
+            measured_size += member.size
+            member_name = member.type
             if member_name in definitions:
                 s += render_definition(member_name, definitions, templates)
 
-    structure["serialization"] = render_structure_serialization(
-        structure, templates
+    structure_dict = structure.to_dict()
+
+    structure_dict["serialization"] = render_structure_serialization(
+        structure_dict, templates
     )
-    structure["deserialization"] = render_structure_deserialization(
-        structure, templates
+    structure_dict["deserialization"] = render_structure_deserialization(
+        structure_dict, templates
     )
 
     s += Template(templates["structure"]["header"]).safe_render(
-        structure=structure
+        structure=structure_dict
     )
-    s += render_structure_members(structure, templates)
+    s += render_structure_members(structure_dict, templates)
     s += Template(templates["structure"]["footer"]).safe_render(
-        structure=structure
+        structure=structure_dict
     )
 
     assert expected_size == measured_size, (
@@ -185,30 +186,31 @@ def render_structure_member(
 
 def render_enum(
     element_name: str,
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
     enumeration = definitions[element_name]
-    assert enumeration["type"] == "enum"
-    enumeration["name"] = element_name
-    enumeration["repr_type"] = enum_repr_type(enumeration)
-    enumeration = struct_parse.complete_enums(enumeration)
-    enumeration["unsigned_header"] = (
+
+    enumeration_dict = enumeration.to_dict()
+
+    enumeration_dict["repr_type"] = enum_repr_type(enumeration_dict)
+    enumeration_dict = struct_parse.complete_enums(enumeration_dict)
+    enumeration_dict["unsigned_header"] = (
         templates["enum"]["unsigned_header"]
-        if not enum_is_signed(enumeration)
+        if not enum_is_signed(enumeration_dict)
         else ""
     )
 
-    enumeration["matches"] = enum_matches(enumeration)
+    enumeration_dict["matches"] = enum_matches(enumeration_dict)
 
     s = ""
 
     s += Template(templates["enum"]["header"]).safe_render(
-        enumeration=enumeration
+        enumeration=enumeration_dict
     )
     s += render_enum_values(element_name, definitions, templates)
     s += Template(templates["enum"]["footer"]).safe_render(
-        enumeration=enumeration
+        enumeration=enumeration_dict
     )
 
     return s
@@ -234,15 +236,17 @@ def enum_matches(enumeration: dict[str, Any]) -> str:
 
 def render_enum_values(
     element_name: str,
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
     enumeration = definitions[element_name]
-    enumeration["name"] = element_name
+
+    enumeration_dict = enumeration.to_dict()
+
     s = ""
-    values = enumeration.get("values")
+    values = enumeration_dict.get("values", [])
     for value in values:
-        s += render_enum_value(value, enumeration, templates)
+        s += render_enum_value(value, enumeration_dict, templates)
     return s
 
 
@@ -259,19 +263,32 @@ def render_enum_value(
 
 def render_group(  # noqa: PLR0915
     group_name: str,
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
-    group = definitions[group_name]
-    assert group["type"] == "group"
-    group["name"] = group_name
+    group = definitions[group_name].as_group()
     s = ""
 
-    group_elements = {
-        k: v
-        for k, v in definitions.items()
-        if group_name in v.get("groups", {})
-    }
+    if not group.members:
+        return ""
+
+    # Build group_elements dictionary for template compatibility
+    group_elements = {}
+    for member in group.members:
+        member_def = definitions[member.type]
+        group_elements[member.type] = {
+            "size": member_def.size,
+            "description": member_def.description,
+            "display_name": member_def.display_name,
+            "type": member_def.__class__.__name__.lower(),
+            "groups": {
+                group_name: {
+                    "name": member.name,
+                    "value": member.value,
+                }
+            },
+        }
+
     group_elements = dict(
         sorted(
             group_elements.items(),
@@ -279,22 +296,16 @@ def render_group(  # noqa: PLR0915
         )
     )
 
-    if not group_elements:
-        return ""
-
-    try:
-        enum_size = group["size"]
-    except KeyError:  # pragma: no cover
-        _logger.exception("Group `%s` is missing `size`", group_name)
-        raise
-
+    enum_size = group.size
     union_size = max(v["size"] for v in group_elements.values())
     type_size = enum_size + union_size
     repr_type = f"u{enum_size * 8}"
-    group["repr_type"] = repr_type
-    group["max_size"] = type_size
 
-    s += Template(templates["group"]["header"]).safe_render(group=group)
+    group_dict = group.to_dict()
+    group_dict["repr_type"] = repr_type
+    group_dict["max_size"] = type_size
+
+    s += Template(templates["group"]["header"]).safe_render(group=group_dict)
 
     for k, v in group_elements.items():
         name = v["groups"][group_name]["name"]
@@ -408,26 +419,26 @@ r.try_into()
 
 def render_bit_field(
     bit_field_name: str,
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
-    bit_field = definitions[bit_field_name]
-    assert bit_field["type"] == "bit_field"
-    bit_field["name"] = bit_field_name
+    bit_field = definitions[bit_field_name].as_bit_field()
     s = ""
 
-    members = bit_field["members"]
+    members = bit_field.members
     for member in members:
-        member_name = member["type"]
+        member_name = member.type
         if member_name in definitions:
             s += render_definition(member_name, definitions, templates)
 
+    bit_field_dict = bit_field.to_dict()
+
     s += Template(templates["bit_field"]["header"]).safe_render(
-        bit_field=bit_field
+        bit_field=bit_field_dict
     )
     s += render_bit_field_members(bit_field_name, definitions, templates)
     s += Template(templates["bit_field"]["footer"]).safe_render(
-        bit_field=bit_field
+        bit_field=bit_field_dict
     )
 
     return s
@@ -435,33 +446,36 @@ def render_bit_field(
 
 def render_bit_field_members(
     bit_field_name: str,
-    definitions: dict[str, Any],
+    definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
-    bit_field = definitions.get(bit_field_name, {})
-    assert bit_field.get("type") == "bit_field"
+    bit_field = definitions.get(bit_field_name)
+    if not bit_field:
+        return ""
+
+    bit_field_dict = bit_field.to_dict()
 
     s = ""
-    members = bit_field.get("members", [])
+    members = bit_field_dict.get("members", [])
     bit_position = 0
     for member in members:
         assert bit_position <= member["start"]
         member = struct_parse.complete_bit_field_member(  # noqa: PLW2901
-            member, bit_field["size"]
+            member, bit_field_dict["size"]
         )
         if member["start"] == bit_position:
-            s += render_bit_field_member(bit_field, member, templates)
+            s += render_bit_field_member(bit_field_dict, member, templates)
         else:
             s += render_bit_field_reserve(
-                bit_position, bit_field, member["start"] - 1, templates
+                bit_position, bit_field_dict, member["start"] - 1, templates
             )
-            s += render_bit_field_member(bit_field, member, templates)
+            s += render_bit_field_member(bit_field_dict, member, templates)
         bit_position = member["last"] + 1
-    total_bits = bit_field["size"] * 8
+    total_bits = bit_field_dict["size"] * 8
     if bit_position < total_bits:
         last_bit = total_bits - 1
         s += render_bit_field_reserve(
-            bit_position, bit_field, last_bit, templates
+            bit_position, bit_field_dict, last_bit, templates
         )
         bit_position += last_bit - bit_position + 1
     assert bit_position == total_bits, f"{bit_position} != {total_bits}"
