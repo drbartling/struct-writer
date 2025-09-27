@@ -1,7 +1,8 @@
 import tomllib
+from typing import Any
 
 
-def default_template() -> str:
+def default_template() -> dict[str, Any]:
     template = """
 [file]
 description = '''

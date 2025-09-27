@@ -35,6 +35,9 @@ def _element_into_bytes(
         if "bit_field" == definition["type"]:
             b += bit_field_into_bytes(element, definitions, endianness)
     else:
+        if size is None:
+            msg = f"Size must be provided for primitive element: {element}"
+            raise ValueError(msg)
         b += primitive_to_bytes(element, endianness, size)
 
     return b

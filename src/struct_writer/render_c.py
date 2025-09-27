@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Any
 
 from struct_writer.struct_parse.struct_parse import complete_bit_field_member
@@ -12,7 +13,7 @@ rendered = {"file"}
 def render_file(
     definitions: dict[str, Any],
     templates: dict[str, Any],
-    output_file: str,
+    output_file: Path,
 ) -> str:
     rendered.clear()
     rendered.add("file")

@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 import copy
 import logging
 import re
@@ -39,7 +39,7 @@ class Template:
                 return "$"
             return match_object.group()
 
-        result = None
+        result = ""
         template = self.template
         while result != template:
             template = result or self.template
@@ -85,7 +85,9 @@ class Template:
         return mapping
 
 
-def named_tuple_from_dict(name: str, dictionary: dict[str, Any]):  # noqa: ANN201
+def named_tuple_from_dict(
+    name: str, dictionary: dict[str, Any] | collections.abc.MutableMapping
+) -> object:
     assert isinstance(dictionary, collections.abc.MutableMapping)
     dictionary = copy.deepcopy(dictionary)
 
@@ -103,7 +105,7 @@ def merge(a: dict, b: dict) -> dict:  # pragma: no cover
             if isinstance(vb, collections.abc.MutableMapping) and isinstance(
                 va, collections.abc.MutableMapping
             ):
-                merge(va, vb)
+                a[k] = merge(dict(va), dict(vb))
             else:
                 a[k] = vb
         else:

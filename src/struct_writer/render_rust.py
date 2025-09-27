@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Any
 
 from struct_writer.definitions import (
@@ -18,9 +19,9 @@ rendered = {"file"}
 
 
 def render_file(
-    definitions: dict[str, DefinedType],
+    definitions: dict[str, Any],
     templates: dict[str, Any],
-    output_file: str,
+    output_file: Path,
 ) -> str:
     rendered.clear()
     rendered.add("file")

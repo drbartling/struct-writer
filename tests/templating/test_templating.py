@@ -31,7 +31,7 @@ template_substitute_params = [
     ("template_str", "params", "expected"), template_substitute_params
 )
 def test_template_substitute(
-    template_str: str, params: dict[str], expected: str
+    template_str: str, params: dict[str, str], expected: str
 ) -> None:
     t = Template(template_str)
 

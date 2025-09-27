@@ -19,7 +19,8 @@ test: check
     @cd examples/rust && cargo test --offline
 
 check: format
-    @uv run ruff check --exit-zero
+    @uv run ruff check
+    @uv run basedpyright
 
 fix: format
     @uv run ruff check --fix
