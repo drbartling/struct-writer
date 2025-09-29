@@ -1,13 +1,331 @@
-from pathlib import Path
+import tomllib
 from typing import Any
-
-from struct_writer import generate_structured_code
 
 
 def default_template() -> dict[str, Any]:
-    this_file = Path(__file__)
-    this_dir = this_file.parent
-    src_dir = this_dir.parent
-    project_dir = src_dir.parent
-    example_template = project_dir / "examples/template_rust.toml"
-    return generate_structured_code.load_markup_file(example_template)
+    template = """
+[file]
+description = '''
+/**
+* @file
+* @brief ${file.brief}
+*
+* ${file.description}
+*
+* @note This file is auto-generated using struct-writer
+*/
+'''
+header = '''
+pub use ${out_file.stem.lower()}::*;
+mod ${out_file.stem.lower()} {
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::all)]
+
+use modular_bitfield::prelude::*;
+#[cfg(feature = "std")]
+use std::str;
+#[cfg(not(feature = "std"))]
+use core::str;
+#[cfg(not(feature = "std"))]
+use heapless::String;
+
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde_big_array::BigArray;
+
+'''
+footer = '''
+}
+'''
+
+[enum]
+header = '''
+pub type ${enumeration.name}_slice = [u8;  ${enumeration.size}];
+// ${enumeration.display_name}
+// ${enumeration.description}
+#[derive(
+    Default, Debug, Clone, PartialEq, Copy,
+)]${enumeration.unsigned_header}
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ${enumeration.name} {
+#[default]
+'''
+unsigned_header = '''
+#[derive(Specifier)]
+#[bits = ${enumeration.bits}]
+'''
+footer = '''
+}
+
+impl From<${enumeration.name}> for ${enumeration.name}_slice {
+fn from(value: ${enumeration.name}) -> Self {
+let v = value as ${enumeration.repr_type};
+v.to_le_bytes()
+}
+}
+
+impl TryFrom<&[u8]> for ${enumeration.name} {
+type Error = ();
+fn try_from(value: &[u8]) -> Result<Self, ()> {
+assert!(value.len() >= size_of::<${enumeration.name}_slice>());
+let v: ${enumeration.name}_slice = value[..size_of::<${enumeration.name}_slice>()]
+.try_into()
+.map_err(|_| ())?;
+Self::try_from(v)
+}
+}
+
+impl TryFrom<${enumeration.name}_slice> for ${enumeration.name} {
+type Error = ();
+fn try_from(value: ${enumeration.name}_slice) -> Result<Self, ()> {
+let v = ${enumeration.repr_type}::from_le_bytes(value);
+v.try_into()
+}
+}
+
+impl TryFrom<${enumeration.repr_type}> for ${enumeration.name} {
+type Error = ();
+fn try_from(value: ${enumeration.repr_type}) -> Result<Self, ()> {
+match value {
+${enumeration.matches}
+_ => Err(()),
+}
+}
+}
+
+'''
+valued = '''
+/// ${value.description}
+${value.label} = ${value.value:#x},
+'''
+
+[group]
+tag_name = '${group.name}_tag'
+header = '''
+
+pub type ${group.name}_slice = [u8;  ${group.max_size}];
+// ${group.display_name}
+// ${group.description}
+#[repr(${group.repr_type})]
+#[derive(Debug, Clone, PartialEq, )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ${group.name} {
+'''
+
+[union]
+header = '''
+// ${union.display_name}
+// ${union.description}
+#[derive(Clone, PartialEq, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ${union.name}{
+'''
+footer = '''
+}
+
+'''
+
+[union.members]
+default = '''
+/// ${member.description}
+${member.name}(${member.type}),
+'''
+
+[structure]
+header = '''
+pub type ${structure.name}_slice = [u8;  ${structure.size}];
+// ${structure.display_name}
+// ${structure.description}
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(
+    Debug, Clone, PartialEq,
+)]
+pub struct ${structure.name}{
+'''
+footer = '''
+}
+
+impl From<${structure.name}> for ${structure.name}_slice {
+#[allow(unused_variables)]
+fn from(value: ${structure.name}) -> Self {
+#[allow(unused_mut)]
+let mut buf: ${structure.name}_slice = [0; ${structure.size}];
+
+${structure.serialization}
+
+buf
+}
+}
+
+impl TryFrom<${structure.name}_slice> for ${structure.name} {
+type Error = ();
+fn try_from(input: ${structure.name}_slice) -> Result<Self, ()> {
+    let input: &[u8] = &input;
+    input.try_into()
+}
+}
+
+impl TryFrom<&[u8]> for ${structure.name} {
+type Error = ();
+fn try_from(input: &[u8]) -> Result<Self, ()> {
+assert!(input.len() >= size_of::<${structure.name}_slice>());
+
+Ok(Self{
+${structure.deserialization}
+})
+
+}
+}
+
+'''
+
+[structure.members.default]
+definition = '''
+/// ${member.description}
+pub ${member.name}: ${member.type},
+'''
+serialize = '''
+let temp: [u8; ${member.size}] = value.${member.name}.into();
+buf[${buffer.start}..${buffer.end}].copy_from_slice(&temp);
+'''
+deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into()?,'
+
+[structure.members.empty]
+definition = '''
+// Structure is intentionally empty (zero sized)
+'''
+serialize = ''
+deserialize = ''
+
+[structure.members.int]
+definition = '''
+/// ${member.description}
+pub ${member.name}: i${member.size*8},
+'''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name}.to_le_bytes());'
+deserialize = '${member.name}: i${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().map_err(|_| ())?),'
+
+[structure.members.uint]
+definition = '''
+/// ${member.description}
+pub ${member.name}: u${member.size*8},
+'''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name}.to_le_bytes());'
+deserialize = '${member.name}: u${member.size*8}::from_le_bytes(input[${buffer.start}..${buffer.end}].try_into().map_err(|_| ())?),'
+
+[structure.members.bool]
+definition = '''
+/// ${member.description}
+pub ${member.name}: bool,
+'''
+serialize = 'buf[${buffer.start}] = if value.${member.name}{1}else{0};'
+deserialize = '${member.name}: if input[${buffer.start}] == 0 {false} else {true},'
+
+[structure.members.bytes]
+definition = '''
+/// ${member.description}
+#[cfg_attr(feature = "serde", serde(with = "BigArray"))]
+pub ${member.name}: [u8; ${member.size}],
+'''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&value.${member.name});'
+deserialize = '${member.name}: input[${buffer.start}..${buffer.end}].try_into().map_err(|_| ())?,'
+
+[structure.members.reserved]
+definition = '''
+/// ${member.description}
+#[cfg_attr(feature = "serde", serde(with = "BigArray"))]
+${member.name}: [u8; ${member.size}],
+'''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(&[0_u8;${member.size}]);'
+deserialize = '${member.name}: [0_u8;${member.size}],'
+
+[structure.members.str]
+definition = '''
+/// ${member.description}
+#[cfg(feature = "std")]
+pub ${member.name}: String,
+#[cfg(not(feature = "std"))]
+pub ${member.name}: String<${member.size}>,
+'''
+serialize = 'buf[${buffer.start}..${buffer.end}].copy_from_slice(value.${member.name}.as_bytes());'
+deserialize = '''
+#[cfg(feature = "std")]
+${member.name}:  str::from_utf8(
+    &input[${buffer.start}..${buffer.end}]
+        .split(|b| *b == 0)
+        .next()
+        .ok_or(())?
+).map_err(|_| ())?
+.to_owned(),
+#[cfg(not(feature = "std"))]
+${member.name}:  String::<${member.size}>::try_from(
+    str::from_utf8(
+        &input[${buffer.start}..${buffer.end}]
+            .split(|b| *b == 0)
+            .next()
+            .ok_or(())?
+    ).map_err(|_| ())?
+).map_err(|_| ())?,
+'''
+
+[bit_field]
+header = '''
+pub type ${bit_field.name}_slice = [u8;  ${bit_field.size}];
+// ${bit_field.display_name}
+// ${bit_field.description}
+#[bitfield]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(
+    Debug, Clone, PartialEq, Copy,
+)]
+pub struct ${bit_field.name}{
+'''
+footer = '''
+}
+
+impl From<${bit_field.name}> for ${bit_field.name}_slice {
+fn from(input: ${bit_field.name}) -> Self {
+input.into_bytes()
+}
+}
+
+impl TryFrom<${bit_field.name}_slice> for ${bit_field.name} {
+type Error = ();
+fn try_from(input: ${bit_field.name}_slice) -> Result<Self, ()> {
+Ok(Self::from_bytes(input))
+}
+}
+
+impl TryFrom<&[u8]> for ${bit_field.name} {
+type Error = ();
+fn try_from(input: &[u8]) -> Result<Self, ()> {
+assert!(input.len() >= size_of::<${bit_field.name}_slice>());
+let a: ${bit_field.name}_slice = input.try_into().map_err(|_| ())?;
+Ok(Self::from_bytes(a))
+}
+}
+
+'''
+type_name = '${bit_field.name}_t'
+
+[bit_field.members]
+default = '''
+/// ${member.description}
+pub ${member.name}: ${member.type},
+'''
+reserved = '''
+#[skip]
+reserved_${member.start}: B${member.bits},
+'''
+uint = '''
+/// ${member.description}
+pub ${member.name}: B${member.bits},
+'''
+
+"""
+
+    return tomllib.loads(template)
