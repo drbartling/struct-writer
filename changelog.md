@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## 0.8.1
+
+- Fix: Restore default template for rust
+
 ## 0.8.0
 
 - Fix json serialization of bitfields.
