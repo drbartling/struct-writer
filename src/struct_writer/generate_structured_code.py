@@ -72,6 +72,7 @@ languages = ["c", "rust"]
     ),
     default="c",
 )
+@click.version_option()
 def main(
     input_definitions: list[Path],
     template_files: list[Path],

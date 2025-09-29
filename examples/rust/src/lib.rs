@@ -18,11 +18,16 @@ mod tests {
 
     #[rstest]
     fn test_serialize_bitfields() {
-        let state = hvac_state::new()
-            .with_ac_enabled(true)
-            .with_units(temperature_units::f);
+        let state = hvac_state {
+            fan_enabled: true,
+            ac_enabled: true,
+            heat_enabled: false,
+            units: temperature_units::f,
+        };
         let result = format!("{}", serde_json::to_string(&state).unwrap());
-        let expected = "{\"bytes\":[20]}".to_owned();
+        let expected =
+            "{\"fan_enabled\":true,\"ac_enabled\":true,\"heat_enabled\":false,\"units\":\"f\"}"
+                .to_owned();
         assert_eq!(expected, result);
     }
 }

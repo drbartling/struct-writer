@@ -1,5 +1,10 @@
 # struct-writer Change Log
 
+## 0.8.0
+
+- Fix json serialization of bitfields.
+- Add --version option to command line
+
 ## 0.7.1
 
 - Fix missing use of bit_field_size

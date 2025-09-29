@@ -51,7 +51,6 @@ mod my_file {
 #![allow(unused_imports)]
 #![allow(clippy::all)]
 
-use modular_bitfield::prelude::*;
 #[cfg(feature = "std")]
 use std::str;
 #[cfg(not(feature = "std"))]
@@ -114,7 +113,6 @@ mod my_file {
 #![allow(unused_imports)]
 #![allow(clippy::all)]
 
-use modular_bitfield::prelude::*;
 #[cfg(feature = "std")]
 use std::str;
 #[cfg(not(feature = "std"))]
@@ -132,9 +130,7 @@ pub type temperature_units_slice = [u8;  1];
 // The temperature units
 #[derive(
     Default, Debug, Clone, PartialEq, Copy,
-)]#[derive(Specifier)]
-#[bits = 1]
-
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum temperature_units {
 #[default]
@@ -232,7 +228,6 @@ mod my_file {
 #![allow(unused_imports)]
 #![allow(clippy::all)]
 
-use modular_bitfield::prelude::*;
 #[cfg(feature = "std")]
 use std::str;
 #[cfg(not(feature = "std"))]
@@ -330,7 +325,6 @@ mod my_file {
 #![allow(unused_imports)]
 #![allow(clippy::all)]
 
-use modular_bitfield::prelude::*;
 #[cfg(feature = "std")]
 use std::str;
 #[cfg(not(feature = "std"))]
@@ -437,7 +431,6 @@ mod my_file {
 #![allow(unused_imports)]
 #![allow(clippy::all)]
 
-use modular_bitfield::prelude::*;
 #[cfg(feature = "std")]
 use std::str;
 #[cfg(not(feature = "std"))]
@@ -574,9 +567,7 @@ pub type temperature_units_slice = [u8;  1];
 // The temperature units
 #[derive(
     Default, Debug, Clone, PartialEq, Copy,
-)]#[derive(Specifier)]
-#[bits = 1]
-
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum temperature_units {
 #[default]
@@ -693,13 +684,12 @@ def test_render_bitfield() -> None:
                 {
                     "name": "temperature",
                     "start": 0,
-                    "bits": 8,
+                    "bits": 7,
                     "type": "int",
                     "description": "Desired temperature",
                 },
                 {
                     "name": "units",
-                    "start": 9,
                     "bits": 2,
                     "type": "uint",
                     "description": "Selected temperature unit",
@@ -726,7 +716,6 @@ mod my_file {
 #![allow(unused_imports)]
 #![allow(clippy::all)]
 
-use modular_bitfield::prelude::*;
 #[cfg(feature = "std")]
 use std::str;
 #[cfg(not(feature = "std"))]
@@ -742,32 +731,38 @@ use serde_big_array::BigArray;
 pub type cmd_temperature_set_slice = [u8;  2];
 // Request temperature change
 // Request a change in temperature
-#[bitfield]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(
-    Debug, Clone, PartialEq, Copy,
+    Debug, Clone, PartialEq,
 )]
 pub struct cmd_temperature_set{
 /// Desired temperature
 pub temperature: int,
-#[skip]
-reserved_8: B1,
 /// Selected temperature unit
-pub units: B2,
-#[skip]
-reserved_11: B5,
+pub units: u8,
+// reserved_9 9...15
 }
 
 impl From<cmd_temperature_set> for cmd_temperature_set_slice {
 fn from(input: cmd_temperature_set) -> Self {
-input.into_bytes()
+
+let mut raw_bits = 0_u16;
+raw_bits |= ((input.units as u16) & 0b11_u16) << 7;
+raw_bits.to_le_bytes()
+
 }
 }
 
 impl TryFrom<cmd_temperature_set_slice> for cmd_temperature_set {
 type Error = ();
 fn try_from(input: cmd_temperature_set_slice) -> Result<Self, ()> {
-Ok(Self::from_bytes(input))
+
+let raw_bits = u16::from_le_bytes(input[0..2].try_into().unwrap());
+Ok(Self{
+temperature: ((raw_bits >> 0) & 0b1111111_u16) as i16,
+units: ((raw_bits >> 7) & 0b11_u16) as u8,
+})
+
 }
 }
 
@@ -775,8 +770,13 @@ impl TryFrom<&[u8]> for cmd_temperature_set {
 type Error = ();
 fn try_from(input: &[u8]) -> Result<Self, ()> {
 assert!(input.len() >= size_of::<cmd_temperature_set_slice>());
-let a: cmd_temperature_set_slice = input.try_into().map_err(|_| ())?;
-Ok(Self::from_bytes(a))
+
+let raw_bits = u16::from_le_bytes(input[0..2].try_into().unwrap());
+Ok(Self{
+temperature: ((raw_bits >> 0) & 0b1111111_u16) as i16,
+units: ((raw_bits >> 7) & 0b11_u16) as u8,
+})
+
 }
 }
 

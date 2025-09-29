@@ -168,7 +168,6 @@ class RequiredFieldMissing(ParseFailed):
     ...             {
     ...                 "label": "a",
     ...                 "value": 0,
-    ...                 "display_name": "A",
     ...             }
     ...         ],
     ...     }
@@ -177,7 +176,7 @@ class RequiredFieldMissing(ParseFailed):
     ...     TypeDefinitions.from_dict(enum_definition)
     ... except RequiredFieldMissing as e:
     ...     print(e)
-    `EnumValue` definition for `an_enum::a` missing `description`
+    `EnumValue` definition for `an_enum::a` missing `display_name`
 
     And the same is true when a structure member is missing an attribute
 
@@ -287,7 +286,7 @@ class StructureMember:
     def from_dict(cls, definition: dict[str, Any]) -> Self:
         try:
             return cls(
-                description=definition["description"],
+                description=definition.get("description", ""),
                 name=definition["name"],
                 size=definition["size"],
                 type=definition["type"],
@@ -331,7 +330,7 @@ class Structure(DefinedType):
         measured_size = sum(m.size for m in members)
         try:
             self = cls(
-                description=definition["description"],
+                description=definition.get("description", ""),
                 display_name=definition["display_name"],
                 members=members,
                 name=name,
@@ -375,7 +374,7 @@ class EnumValue:
                 label=definition["label"],
                 value=definition["value"],
                 display_name=definition["display_name"],
-                description=definition["description"],
+                description=definition.get("description", ""),
             )
         except KeyError as e:
             raise RequiredFieldMissing.from_key_error(
@@ -418,11 +417,19 @@ class Enumeration(DefinedType):
             values.append(ev)
         bits = cls.enum_bits([v.value for v in values])
         measured_size = math.ceil(bits / 8.0)
-        enum_size: int = definition["size"]
-        if measured_size != enum_size:
+        try:
+            enum_size: int = definition["size"]
+        except KeyError as e:
+            raise RequiredFieldMissing.from_key_error(
+                definition.get("name", "missing_name"),
+                cls.__name__,
+                e,
+            ) from e
+
+        if measured_size > enum_size:
             raise SizeMismatch(name, enum_size, measured_size)
         return cls(
-            description=definition["description"],
+            description=definition.get("description", ""),
             display_name=definition["display_name"],
             values=values,
             name=name,
@@ -487,7 +494,7 @@ class BitFieldMember:
                 end=definition["end"],
                 bits=definition["bits"],
                 type=definition["type"],
-                description=definition["description"],
+                description=definition.get("description", ""),
             )
         except KeyError as e:
             raise RequiredFieldMissing.from_key_error(
@@ -531,6 +538,7 @@ class BitFieldMember:
             "start": self.start,
             "end": self.end,
             "bits": self.bits,
+            "size": math.ceil(self.bits / 8),
             "type": self.type,
             "description": self.description,
         }
@@ -568,7 +576,7 @@ class BitField(DefinedType):
             )
 
         return cls(
-            description=definition["description"],
+            description=definition.get("description", ""),
             display_name=definition["display_name"],
             members=members,
             name=name,
@@ -671,7 +679,7 @@ class FileDescription:
     def from_dict(cls, definition: dict[str, Any]) -> Self:
         return cls(
             brief=definition["brief"],
-            description=definition["description"],
+            description=definition.get("description", ""),
         )
 
     @classmethod

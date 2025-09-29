@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow, ensure};
+use anyhow::{anyhow, ensure, Result};
 use std::env;
 use std::path::PathBuf;
 use std::process::Command;
@@ -59,7 +59,7 @@ fn generate_structs(
     ensure!(status.success());
 
     let mut format_cmd = Command::new("rustfmt");
-    cmd.arg(&out_file);
+    format_cmd.arg(&out_file);
     let status = format_cmd.status()?;
     ensure!(status.success());
 

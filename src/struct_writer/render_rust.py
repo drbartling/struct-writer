@@ -196,11 +196,6 @@ def render_enum(
 
     enumeration_dict["repr_type"] = enum_repr_type(enumeration_dict)
     enumeration_dict = struct_parse.complete_enums(enumeration_dict)
-    enumeration_dict["unsigned_header"] = (
-        templates["enum"]["unsigned_header"]
-        if not enum_is_signed(enumeration_dict)
-        else ""
-    )
 
     enumeration_dict["matches"] = enum_matches(enumeration_dict)
 
@@ -434,6 +429,14 @@ def render_bit_field(
 
     bit_field_dict = bit_field.to_dict()
 
+    bit_field_dict["serialization"] = render_bit_field_serialization(
+        bit_field_dict, templates
+    )
+
+    bit_field_dict["deserialization"] = render_bit_field_deserialization(
+        bit_field_dict, templates
+    )
+
     s += Template(templates["bit_field"]["header"]).safe_render(
         bit_field=bit_field_dict
     )
@@ -450,53 +453,14 @@ def render_bit_field_members(
     definitions: dict[str, DefinedType],
     templates: dict[str, Any],
 ) -> str:
-    bit_field = definitions.get(bit_field_name)
-    if not bit_field:
-        return ""
-
+    bit_field = definitions[bit_field_name].as_bit_field()
     bit_field_dict = bit_field.to_dict()
 
     s = ""
     members = bit_field_dict.get("members", [])
-    bit_position = 0
     for member in members:
-        assert bit_position <= member["start"]
-        member = struct_parse.complete_bit_field_member(  # noqa: PLW2901
-            member, bit_field_dict["size"]
-        )
-        if member["start"] == bit_position:
-            s += render_bit_field_member(bit_field_dict, member, templates)
-        else:
-            s += render_bit_field_reserve(
-                bit_position, bit_field_dict, member["start"] - 1, templates
-            )
-            s += render_bit_field_member(bit_field_dict, member, templates)
-        bit_position = member["last"] + 1
-    total_bits = bit_field_dict["size"] * 8
-    if bit_position < total_bits:
-        last_bit = total_bits - 1
-        s += render_bit_field_reserve(
-            bit_position, bit_field_dict, last_bit, templates
-        )
-        bit_position += last_bit - bit_position + 1
-    assert bit_position == total_bits, f"{bit_position} != {total_bits}"
+        s += render_bit_field_member(bit_field_dict, member, templates)
     return s
-
-
-def render_bit_field_reserve(
-    bit_position: int,
-    bit_field: dict[str, Any],
-    last_bit: int,
-    templates: dict[str, Any],
-) -> str:
-    reserved_member = {
-        "name": "reserved",
-        "start": bit_position,
-        "last": last_bit,
-        "type": "reserved",
-    }
-    struct_parse.complete_bit_field_member(reserved_member, bit_field["size"])
-    return render_bit_field_member(bit_field, reserved_member, templates)
 
 
 def render_bit_field_member(
@@ -512,3 +476,78 @@ def render_bit_field_member(
     return Template(member_template).safe_render(
         bit_field=bit_field, member=member
     )
+
+
+def render_bit_field_serialization(
+    bit_field_dict: dict[str, Any],
+    _templates: dict[str, Any],
+) -> str:
+    bit_field_type = f"u{8 * bit_field_dict['size']}"
+    serialization_lines = []
+    serialization_lines.append(f"let mut raw_bits = 0_{bit_field_type};")
+
+    for member in bit_field_dict.get("members", []):
+        mask = "0b" + "1" * member["bits"]
+        shift = member["start"]
+        s = ""
+        match member["type"].lower():
+            case "bool":
+                s = f"raw_bits |=  (if input.{member['name']} {{1_{bit_field_type}}} else {{0_{bit_field_type}}} <<  {shift});"
+                serialization_lines.append(s)
+            case "int":
+                pass
+            case "uint":
+                s = f"raw_bits |= ((input.{member['name']} as {bit_field_type}) & {mask}_{bit_field_type}) << {shift};"
+                serialization_lines.append(s)
+            case "reserved":
+                continue
+            case _:
+                member_repr = f"u{member['size'] * 8}"
+                s = f"let {member['name']}: {member['type']}_slice = input.{member['name']}.into();"
+                serialization_lines.append(s)
+                s = f"let {member['name']} = {member_repr}::from_le_bytes({member['name']}) as {bit_field_type};"
+                serialization_lines.append(s)
+                s = f"raw_bits |= (({member['name']}) & {mask}_{bit_field_type}) << {shift};"
+                serialization_lines.append(s)
+
+    serialization_lines.append("raw_bits.to_le_bytes()")
+    return "\n".join(serialization_lines)
+
+
+def render_bit_field_deserialization(
+    bit_field_dict: dict[str, Any],
+    _templates: dict[str, Any],
+) -> str:
+    bits = 8 * bit_field_dict["size"]
+    bit_field_type = f"u{bits}"
+    serialization_lines = []
+    serialization_lines.append(
+        f"let raw_bits = {bit_field_type}::from_le_bytes(input[0..{bit_field_dict['size']}].try_into().unwrap());"
+    )
+    serialization_lines.append("Ok(Self{")
+
+    for member in bit_field_dict.get("members", []):
+        mask = "0b" + "1" * member["bits"]
+        shift = member["start"]
+        member_repr = f"u{member['size'] * 8}"
+        to_uint = f"(raw_bits >> {shift}) & {mask}_{bit_field_type}"
+        s = f"{member['name']}: "
+        match member["type"].lower():
+            case "bool":
+                s += f"({to_uint}) != 0"
+            case "int":
+                s += f"({to_uint}) as i{bits}"
+            case "uint":
+                s += f"({to_uint}) as {member_repr}"
+            case "reserved":
+                continue
+            case _:
+                member_repr = f"u{member['size'] * 8}"
+                s += (
+                    f"{member['type']}::try_from(({to_uint}) as {member_repr})?"
+                )
+        s += ","
+        serialization_lines.append(s)
+
+    serialization_lines.append("})")
+    return "\n".join(serialization_lines)
