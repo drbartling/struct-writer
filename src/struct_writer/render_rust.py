@@ -543,9 +543,7 @@ def render_bit_field_deserialization(
                 continue
             case _:
                 member_repr = f"u{member['size'] * 8}"
-                s += (
-                    f"{member['type']}::try_from(({to_uint}) as {member_repr})?"
-                )
+                s += f'{member["type"]}::try_from(({to_uint}) as {member_repr}).map_err(|_| debug!("Failed to parse {member["type"]}: {{}}", {to_uint}))?'
         s += ","
         serialization_lines.append(s)
 

@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## Unreleased
+
+- Add debug output for failed rust member parsing
+
 ## 0.8.1
 
 - Fix: Restore default template for rust
