@@ -1,6 +1,6 @@
 # struct-writer Change Log
 
-## Unreleased
+## 0.8.2
 
 - Test and support python 3.14
 - Add debug output for failed rust member parsing
