@@ -10,9 +10,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - {name: Linux, python: '3.13', os: ubuntu-latest}
-        - {name: Windows, python: '3.13', os: windows-latest}
-        - {name: Mac, python: '3.13', os: macos-latest}
+        - {name: Linux, python: '3.14', os: ubuntu-latest}
+        - {name: Windows, python: '3.14', os: windows-latest}
+        - {name: Mac, python: '3.14', os: macos-latest}
+        - {name: '3.13', python: '3.13', os: ubuntu-latest}
         - {name: '3.12', python: '3.12', os: ubuntu-latest}
 
     steps:

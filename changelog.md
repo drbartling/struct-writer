@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Test and support python 3.14
 - Add debug output for failed rust member parsing
 
 ## 0.8.1
