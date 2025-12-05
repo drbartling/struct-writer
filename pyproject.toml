@@ -20,11 +20,11 @@ struct-writer = "struct_writer.generate_structured_code:main"
 
 [dependency-groups]
 dev = [
-    "basedpyright>=1.31.5",
+    "basedpyright>=1.35.0",
     "devtools>=0.12.2",
-    "pytest>=8.4.1",
-    "pytest-cov>=6.2.1",
-    "ruff>=0.12.8",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.8",
 ]
 
 [tool.coverage.paths]
