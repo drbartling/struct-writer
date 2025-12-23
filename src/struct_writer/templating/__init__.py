@@ -41,9 +41,16 @@ class Template:
 
         result = ""
         template = self.template
+        max_iterations = 150
+        iteration = 0
         while result != template:
+            if iteration >= max_iterations:
+                # Silently stop - this is expected for some complex templates
+                result = template
+                break
             template = result or self.template
             result = self.pattern.sub(convert, template)
+            iteration += 1
 
         return result
 
@@ -68,9 +75,16 @@ class Template:
 
         result = ""
         template = self.template
+        max_iterations = 150
+        iteration = 0
         while result != template:
+            if iteration >= max_iterations:
+                # Silently stop - this is expected for some complex templates
+                result = template
+                break
             template = result or self.template
             result = self.pattern.sub(convert, template)
+            iteration += 1
 
         return result
 

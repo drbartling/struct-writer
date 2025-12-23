@@ -134,6 +134,20 @@ Chain templates together to more tightly specify certain files in a project.  Fo
 struct-writer --input-definition examples/structures.toml --output-file examples/output/structures.h --template-file examples/template_c.toml --template-file examples/packed_templates.toml
 ```
 
+### CSV documentation output
+
+Generate spreadsheet-friendly documentation by targeting the new `csv` language. The TASER 10 log definitions in [logs.toml](logs.toml) are a good real-world source file:
+
+```bash
+struct-writer \
+  --input-definition logs.toml \
+  --output-file build/logs.csv \
+  --language csv \
+  --template-file examples/template_csv.toml
+```
+
+The bundled template at [examples/template_csv.toml](examples/template_csv.toml) mirrors the defaults returned by `struct_writer.default_template_csv`. It emits one row per structure, enum, bit-field, group, and their nested members with these columns: `category`, `qualified_name`, `display_name`, `description`, `data_type`, `size_bytes`, and `details`. Open the resulting CSV directly in Excel or import it into other tooling, and customize the column list or any `[rows.*]` entries to match future PDF/Excel layouts.
+
 ## development
 ```
 watchexec.exe --clear --restart  --debounce 500 --exts py,toml "isort . && black . && pytest && struct-writer --input-definition examples/structures.toml --template-files examples/template.toml --output-file examples/output/structures.h && pylint ."

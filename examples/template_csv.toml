@@ -1,0 +1,104 @@
+[file]
+description = ''
+header = ''
+footer = ''
+include_header = true
+columns = [
+  "category",
+  "qualified_name",
+  "display_name",
+  "description",
+  "data_type",
+  "size_bytes",
+  "details",
+]
+
+[rows.default]
+category = "${row_type}"
+qualified_name = ""
+display_name = ""
+description = ""
+data_type = ""
+size_bytes = ""
+details = ""
+
+[rows.file]
+category = "file"
+qualified_name = "${out_file.name}"
+display_name = "${file.brief}"
+description = "${file.description}"
+data_type = "metadata"
+size_bytes = ""
+details = ""
+
+[rows.structure]
+category = "structure"
+qualified_name = "${structure.name}"
+display_name = "${structure.display_name}"
+description = "${structure.description}"
+data_type = "structure"
+size_bytes = "${structure.size}"
+details = "members=${structure.member_count}"
+
+[rows.structure_member]
+category = "structure_member"
+qualified_name = "${structure.name}.${member.name}"
+display_name = "${member.name}"
+description = "${member.description}"
+data_type = "${member.type}"
+size_bytes = "${member.size}"
+details = ""
+
+[rows.enum]
+category = "enum"
+qualified_name = "${enumeration.name}"
+display_name = "${enumeration.display_name}"
+description = "${enumeration.description}"
+data_type = "enum"
+size_bytes = "${enumeration.size}"
+details = "values=${enumeration.value_count}"
+
+[rows.enum_value]
+category = "enum_value"
+qualified_name = "${enumeration.name}.${value.label}"
+display_name = "${value.display_name}"
+description = "${value.description}"
+data_type = "value"
+size_bytes = ""
+details = "value=${value.hex_value}"
+
+[rows.bit_field]
+category = "bit_field"
+qualified_name = "${bit_field.name}"
+display_name = "${bit_field.display_name}"
+description = "${bit_field.description}"
+data_type = "bit_field"
+size_bytes = "${bit_field.size}"
+details = "bits=${bit_field.bit_width}"
+
+[rows.bit_field_member]
+category = "bit_field_member"
+qualified_name = "${bit_field.name}.${member.name}"
+display_name = "${member.name}"
+description = "${member.description}"
+data_type = "${member.type}"
+size_bytes = "${member.size}"
+details = "bits=${member.bits};range=${member.bit_range}"
+
+[rows.group]
+category = "group"
+qualified_name = "${group.name}"
+display_name = "${group.display_name}"
+description = "${group.description}"
+data_type = "group"
+size_bytes = "${group.size}"
+details = "members=${group.member_count};max_payload=${group.max_payload_size}"
+
+[rows.group_member]
+category = "group_member"
+qualified_name = "${group.name}.${member.name}"
+display_name = "${member.name}"
+description = "${member_type.display_name}"
+data_type = "${member.type}"
+size_bytes = "${member_type.size}"
+details = "tag=${member.value}"

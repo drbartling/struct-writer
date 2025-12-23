@@ -10,8 +10,10 @@ from rich.traceback import install
 
 from struct_writer import (
     default_template_c,
+    default_template_csv,
     default_template_rust,
     render_c,
+    render_csv,
     render_rust,
     templating,
 )
@@ -20,7 +22,7 @@ install()
 
 _logger = logging.getLogger(__name__)
 
-languages = ["c", "rust"]
+languages = ["c", "rust", "csv"]
 
 
 @click.command()
@@ -93,6 +95,10 @@ def main(
         "rust": {
             "template": default_template_rust.default_template,
             "renderer": render_rust,
+        },
+        "csv": {
+            "template": default_template_csv.default_template,
+            "renderer": render_csv,
         },
     }
     renderer = lang_mapping[language]["renderer"]
