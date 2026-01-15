@@ -118,7 +118,7 @@ def render_file(
 
 
 def extract_package_from_path(output_file: Path) -> str:
-    """Extract Scala package from file path (e.g., com.axon.thunderbird.generated)."""
+    """Extract Scala package from file path (e.g., com.example.generated)."""
     parts = output_file.parts
     try:
         # Look for scala/src/main/scala pattern
@@ -250,7 +250,7 @@ def decode_call_for_member(
     if member_type == "str":
         return f'new String(bytes.slice({offset}, {end}).takeWhile(_ != 0), "UTF-8")'
     if member_type in definitions:
-        return f"{member_type}.decodeLogEvent(bytes.slice({offset}, {end}))"
+        return f"{member_type}.fromBytes(bytes.slice({offset}, {end}))"
     return f"bytes.slice({offset}, {end})"
 
 
@@ -347,8 +347,8 @@ object {element_name} {{
     s += "    None\n"
     s += "  }\n\n"
 
-    # Generate decodeLogEvent
-    s += f"  def decodeLogEvent(bytes: Array[Byte]): {element_name} =\n"
+    # Generate fromBytes
+    s += f"  def fromBytes(bytes: Array[Byte]): {element_name} =\n"
     s += "    fromByte(bytes(0)).getOrElse(UnknownValue(bytes(0)))\n"
     s += "}\n\n"
 
@@ -408,14 +408,14 @@ def render_structure(
     s += f"  final val SizeInBytes = {structure_dict['size']}\n\n"
     s += "  // Binary decode/encode\n"
     s += f"  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{structure_name}] = Try {{\n"
-    s += "    decodeLogEvent(bytes)\n"
+    s += "    fromBytes(bytes)\n"
     s += "  }\n\n"
     s += f"  override def encode(event: {structure_name}): Try[Seq[Byte]] = Try {{\n"
-    s += "    encodeLogEvent(event)\n"
+    s += "    toBytes(event)\n"
     s += "  }\n\n"
 
-    # Generate decodeLogEvent
-    s += f"  def decodeLogEvent(bytes: Array[Byte]): {structure_name} = {{\n"
+    # Generate fromBytes
+    s += f"  def fromBytes(bytes: Array[Byte]): {structure_name} = {{\n"
     s += f"    {structure_name}(\n"
     offset = 0
     for member in structure_dict.get("members", []):
@@ -425,8 +425,8 @@ def render_structure(
     s += "    )\n"
     s += "  }\n\n"
 
-    # Generate encodeLogEvent
-    s += f"  def encodeLogEvent(event: {structure_name}): Seq[Byte] = {{\n"
+    # Generate toBytes
+    s += f"  def toBytes(event: {structure_name}): Seq[Byte] = {{\n"
     s += "    val bytes = mutable.ArrayBuffer.empty[Byte]\n"
     for member in structure_dict.get("members", []):
         encode_expr = encode_call_for_member(member, definitions)
@@ -480,7 +480,7 @@ def render_group(
     s += "    }\n"
     s += "  }\n\n"
 
-    s += f"  def decodeLogEvent(bytes: Array[Byte]): {group_name} =\n"
+    s += f"  def fromBytes(bytes: Array[Byte]): {group_name} =\n"
     s += "    decode(bytes, 0L).get\n"
     s += "}\n\n"
 
@@ -550,14 +550,14 @@ def render_structure_with_group(  # noqa: PLR0915
     s += f"  final val SizeInBytes = {structure_dict['size']}\n\n"
     s += "  // Binary decode/encode\n"
     s += f"  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{structure_name}] = Try {{\n"
-    s += "    decodeLogEvent(bytes)\n"
+    s += "    fromBytes(bytes)\n"
     s += "  }\n\n"
     s += f"  override def encode(event: {structure_name}): Try[Seq[Byte]] = Try {{\n"
-    s += "    encodeLogEvent(event)\n"
+    s += "    toBytes(event)\n"
     s += "  }\n\n"
 
-    # Generate decodeLogEvent
-    s += f"  def decodeLogEvent(bytes: Array[Byte]): {structure_name} = {{\n"
+    # Generate fromBytes
+    s += f"  def fromBytes(bytes: Array[Byte]): {structure_name} = {{\n"
     s += f"    {structure_name}(\n"
     offset = 0
     for member in structure_dict.get("members", []):
@@ -567,8 +567,8 @@ def render_structure_with_group(  # noqa: PLR0915
     s += "    )\n"
     s += "  }\n\n"
 
-    # Generate encodeLogEvent
-    s += f"  def encodeLogEvent(event: {structure_name}): Seq[Byte] = {{\n"
+    # Generate toBytes
+    s += f"  def toBytes(event: {structure_name}): Seq[Byte] = {{\n"
     s += "    val bytes = mutable.ArrayBuffer.empty[Byte]\n"
     for member in structure_dict.get("members", []):
         encode_expr = encode_call_for_member(member, definitions)
@@ -643,15 +643,15 @@ def render_bit_field(  # noqa: C901, PLR0912, PLR0915
     s += f"  final val SizeInBytes = {bit_field_dict['size']}\n\n"
 
     s += f"  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{bit_field_name}] = Try {{\n"
-    s += "    decodeLogEvent(bytes)\n"
+    s += "    fromBytes(bytes)\n"
     s += "  }\n\n"
 
     s += f"  override def encode(event: {bit_field_name}): Try[Seq[Byte]] = Try {{\n"
-    s += "    encodeLogEvent(event)\n"
+    s += "    toBytes(event)\n"
     s += "  }\n\n"
 
-    # Generate decodeLogEvent
-    s += f"  def decodeLogEvent(bytes: Array[Byte]): {bit_field_name} = {{\n"
+    # Generate fromBytes
+    s += f"  def fromBytes(bytes: Array[Byte]): {bit_field_name} = {{\n"
     s += f"    val rawBits = BinaryUtils.{read_func}(bytes, 0)\n"
     s += f"    {bit_field_name}(\n"
 
@@ -669,11 +669,11 @@ def render_bit_field(  # noqa: C901, PLR0912, PLR0915
     s += "    )\n"
     s += "  }\n\n"
 
-    # Generate encodeLogEvent
+    # Generate toBytes
     scala_raw_type = {8: "Int", 16: "Int", 32: "Int", 64: "Long"}.get(
         bits, "Int"
     )
-    s += f"  def encodeLogEvent(value: {bit_field_name}): Seq[Byte] = {{\n"
+    s += f"  def toBytes(value: {bit_field_name}): Seq[Byte] = {{\n"
     s += f"    var rawBits: {scala_raw_type} = 0\n"
 
     for member in bit_field_dict.get("members", []):

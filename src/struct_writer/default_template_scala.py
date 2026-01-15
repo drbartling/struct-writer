@@ -135,13 +135,13 @@ trait ByteSequence {
   def toByteSeq: Try[Seq[Byte]]
 }
 
-// Codec pattern
+// Codec pattern for binary serialization
 trait ByteSequenceCodec[T <: ByteSequence] {
   def SizeInBytes: Int
   def decode(bytes: Array[Byte], streamPositionHead: Long): Try[T]
-  def encode(event: T): Try[Seq[Byte]]
-  def decodeLogEvent(bytes: Array[Byte]): T
-  def encodeLogEvent(event: T): Seq[Byte]
+  def encode(value: T): Try[Seq[Byte]]
+  def fromBytes(bytes: Array[Byte]): T
+  def toBytes(value: T): Seq[Byte]
 }
 
 // JSON serialization trait
@@ -215,7 +215,7 @@ ${enumeration.to_display_matches}
     None
   }
 
-  def decodeLogEvent(bytes: Array[Byte]): ${enumeration.name} =
+  def fromBytes(bytes: Array[Byte]): ${enumeration.name} =
     fromByte(bytes(0)).getOrElse(UnknownValue(bytes(0)))
 }
 
@@ -238,7 +238,7 @@ ${group.decode_matches}
     }
   }
 
-  def decodeLogEvent(bytes: Array[Byte]): ${group.name} =
+  def fromBytes(bytes: Array[Byte]): ${group.name} =
     decode(bytes, 0L).get
 }
 
@@ -268,20 +268,20 @@ object ${structure.name} extends ByteSequenceCodec[${structure.name}] {
 
   // Binary decode/encode
   override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[${structure.name}] = Try {
-    decodeLogEvent(bytes)
+    fromBytes(bytes)
   }
 
   override def encode(event: ${structure.name}): Try[Seq[Byte]] = Try {
-    encodeLogEvent(event)
+    toBytes(event)
   }
 
-  def decodeLogEvent(bytes: Array[Byte]): ${structure.name} = {
+  def fromBytes(bytes: Array[Byte]): ${structure.name} = {
     ${structure.name}(
 ${structure.deserialization}
     )
   }
 
-  def encodeLogEvent(event: ${structure.name}): Seq[Byte] = {
+  def toBytes(event: ${structure.name}): Seq[Byte] = {
     val bytes = mutable.ArrayBuffer.empty[Byte]
 ${structure.serialization}
     bytes.toSeq
@@ -294,7 +294,7 @@ ${structure.serialization}
 definition = '''  ${member.name}: ${member.type},
 '''
 serialize = '''    bytes.appendAll(event.${member.name}.toByteSeq.get)'''
-deserialize = '''      ${member.name} = ${member.type}.decodeLogEvent(bytes.slice(${buffer.start}, ${buffer.end})),'''
+deserialize = '''      ${member.name} = ${member.type}.fromBytes(bytes.slice(${buffer.start}, ${buffer.end})),'''
 
 [structure.members.empty]
 definition = '''  // Empty structure
@@ -358,21 +358,21 @@ object ${bit_field.name} extends ByteSequenceCodec[${bit_field.name}] {
   final val SizeInBytes = ${bit_field.size}
 
   override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[${bit_field.name}] = Try {
-    decodeLogEvent(bytes)
+    fromBytes(bytes)
   }
 
   override def encode(event: ${bit_field.name}): Try[Seq[Byte]] = Try {
-    encodeLogEvent(event)
+    toBytes(event)
   }
 
-  def decodeLogEvent(bytes: Array[Byte]): ${bit_field.name} = {
+  def fromBytes(bytes: Array[Byte]): ${bit_field.name} = {
     ${bit_field.raw_bits_read}
     ${bit_field.name}(
 ${bit_field.deserialization}
     )
   }
 
-  def encodeLogEvent(value: ${bit_field.name}): Seq[Byte] = {
+  def toBytes(value: ${bit_field.name}): Seq[Byte] = {
 ${bit_field.serialization}
   }
 }
