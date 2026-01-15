@@ -10,7 +10,6 @@ description = '''
 *        Pattern based on yule-common-parsing ByteSequence model
 */
 '''
-
 header = '''
 package ${package}
 
@@ -212,7 +211,6 @@ case class Hexadecimal(value: Int, bits: Int) {
 }
 
 '''
-
 footer = '''
 
 // End of generated code
