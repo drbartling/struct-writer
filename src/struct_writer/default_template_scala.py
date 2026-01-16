@@ -1,0 +1,394 @@
+import tomllib
+from typing import Any
+
+
+def default_template() -> dict[str, Any]:
+    template = """
+[file]
+description = '''
+/**
+* @file
+* @brief ${file.brief}
+*
+* ${file.description}
+*
+* @note This file is auto-generated using struct-writer
+*/
+'''
+header = '''
+package ${package}
+
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
+import org.json4s.jackson.Serialization
+
+import scala.util.{Try, Success, Failure}
+import scala.collection.mutable
+
+// Binary utilities - implement these based on your project
+object BinaryUtils {
+  def bytesToUint8(bytes: Array[Byte], offset: Int): Int =
+    bytes(offset) & 0xFF
+
+  def bytesToUint16LE(bytes: Array[Byte], offset: Int): Int =
+    ((bytes(offset) & 0xFF) | ((bytes(offset + 1) & 0xFF) << 8)) & 0xFFFF
+
+  def bytesToUint32LE(bytes: Array[Byte], offset: Int): Long =
+    ((bytes(offset) & 0xFF) |
+     ((bytes(offset + 1) & 0xFF) << 8) |
+     ((bytes(offset + 2) & 0xFF) << 16) |
+     ((bytes(offset + 3) & 0xFF) << 24)) & 0xFFFFFFFFL
+
+  def uint8ToBytes(value: Int): Byte = (value & 0xFF).toByte
+
+  def uint16LEtoBytes(value: Int): Array[Byte] = Array(
+    (value & 0xFF).toByte,
+    ((value >> 8) & 0xFF).toByte
+  )
+
+  def uint32LEtoBytes(value: Long): Array[Byte] = Array(
+    (value & 0xFF).toByte,
+    ((value >> 8) & 0xFF).toByte,
+    ((value >> 16) & 0xFF).toByte,
+    ((value >> 24) & 0xFF).toByte
+  )
+
+  // Signed integer conversions
+  def bytesToInt8(bytes: Array[Byte], offset: Int): Byte =
+    bytes(offset)
+
+  def bytesToInt16LE(bytes: Array[Byte], offset: Int): Short =
+    ((bytes(offset) & 0xFF) | ((bytes(offset + 1) & 0xFF) << 8)).toShort
+
+  def bytesToInt32LE(bytes: Array[Byte], offset: Int): Int =
+    (bytes(offset) & 0xFF) |
+    ((bytes(offset + 1) & 0xFF) << 8) |
+    ((bytes(offset + 2) & 0xFF) << 16) |
+    ((bytes(offset + 3) & 0xFF) << 24)
+
+  def int8ToBytes(value: Byte): Byte = value
+
+  def int16LEtoBytes(value: Short): Array[Byte] = Array(
+    (value & 0xFF).toByte,
+    ((value >> 8) & 0xFF).toByte
+  )
+
+  def int32LEtoBytes(value: Int): Array[Byte] = Array(
+    (value & 0xFF).toByte,
+    ((value >> 8) & 0xFF).toByte,
+    ((value >> 16) & 0xFF).toByte,
+    ((value >> 24) & 0xFF).toByte
+  )
+
+  def bytesToInt64LE(bytes: Array[Byte], offset: Int): Long =
+    (bytes(offset) & 0xFFL) |
+    ((bytes(offset + 1) & 0xFFL) << 8) |
+    ((bytes(offset + 2) & 0xFFL) << 16) |
+    ((bytes(offset + 3) & 0xFFL) << 24) |
+    ((bytes(offset + 4) & 0xFFL) << 32) |
+    ((bytes(offset + 5) & 0xFFL) << 40) |
+    ((bytes(offset + 6) & 0xFFL) << 48) |
+    ((bytes(offset + 7) & 0xFFL) << 56)
+
+  def int64LEtoBytes(value: Long): Array[Byte] = Array(
+    (value & 0xFF).toByte,
+    ((value >> 8) & 0xFF).toByte,
+    ((value >> 16) & 0xFF).toByte,
+    ((value >> 24) & 0xFF).toByte,
+    ((value >> 32) & 0xFF).toByte,
+    ((value >> 40) & 0xFF).toByte,
+    ((value >> 48) & 0xFF).toByte,
+    ((value >> 56) & 0xFF).toByte
+  )
+
+  def bytesToUint64LE(bytes: Array[Byte], offset: Int): Long =
+    (bytes(offset) & 0xFFL) |
+    ((bytes(offset + 1) & 0xFFL) << 8) |
+    ((bytes(offset + 2) & 0xFFL) << 16) |
+    ((bytes(offset + 3) & 0xFFL) << 24) |
+    ((bytes(offset + 4) & 0xFFL) << 32) |
+    ((bytes(offset + 5) & 0xFFL) << 40) |
+    ((bytes(offset + 6) & 0xFFL) << 48) |
+    ((bytes(offset + 7) & 0xFFL) << 56)
+
+  def uint64LEtoBytes(value: Long): Array[Byte] = Array(
+    (value & 0xFF).toByte,
+    ((value >> 8) & 0xFF).toByte,
+    ((value >> 16) & 0xFF).toByte,
+    ((value >> 24) & 0xFF).toByte,
+    ((value >> 32) & 0xFF).toByte,
+    ((value >> 40) & 0xFF).toByte,
+    ((value >> 48) & 0xFF).toByte,
+    ((value >> 56) & 0xFF).toByte
+  )
+
+  // Aliases for single-byte operations (no endianness for 1 byte)
+  def bytesToInt8LE(bytes: Array[Byte], offset: Int): Byte = bytesToInt8(bytes, offset)
+  def int8LEtoBytes(value: Byte): Array[Byte] = Array(value)
+  def bytesToUint8LE(bytes: Array[Byte], offset: Int): Int = bytesToUint8(bytes, offset)
+  def uint8LEtoBytes(value: Int): Array[Byte] = Array(uint8ToBytes(value))
+}
+
+// Base trait for all generated structures
+trait ByteSequence {
+  def SizeInBytes: Int
+  def toByteSeq: Try[Seq[Byte]]
+}
+
+// Codec pattern for binary serialization
+trait ByteSequenceCodec[T <: ByteSequence] {
+  def SizeInBytes: Int
+  def decode(bytes: Array[Byte], streamPositionHead: Long): Try[T]
+  def encode(value: T): Try[Seq[Byte]]
+  def fromBytes(bytes: Array[Byte]): T
+  def toBytes(value: T): Seq[Byte]
+}
+
+// JSON serialization trait
+trait CustomJsonSerializer {
+  type ObjectToSerialize <: AnyRef
+
+  implicit val formats: Formats = DefaultFormats
+
+  def serialize(): String = Serialization.writePretty(getObjectToSerialize())
+  def serializeToJValue(): JValue = parse(serialize())
+
+  protected def getObjectToSerialize(): ObjectToSerialize
+}
+
+// JSON deserialization trait
+trait CustomJsonDeserializer[D <: AnyRef] {
+
+  def deserialize(json: String): D = {
+    implicit val formats: Formats = DefaultFormats
+    fromJson(json)
+  }
+
+  def deserializeFromJValue(jValue: JValue): D = {
+    val json = compact(render(jValue))
+    deserialize(json)
+  }
+
+  protected def fromJson(json: String)(implicit formats: Formats): D
+}
+
+'''
+footer = '''
+
+// End of generated code
+'''
+
+[enum]
+header = '''
+// ${enumeration.display_name}
+// ${enumeration.description}
+sealed trait ${enumeration.name} extends ByteSequence {
+  override def SizeInBytes: Int = 1
+  override def toByteSeq: Try[Seq[Byte]] = Success(Seq(${enumeration.name}.toByte(this)))
+  def toDisplayString: String = ${enumeration.name}.toDisplayString(this)
+}
+
+object ${enumeration.name} {
+  // Wrapper for unknown enum values
+  final case class UnknownValue(value: Byte) extends ${enumeration.name}
+'''
+valued = '''  case object ${value.escaped_label} extends ${enumeration.name}
+'''
+footer = '''
+  def fromByte(value: Byte): Option[${enumeration.name}] = value match {
+${enumeration.byte_matches}
+    case _ => None
+  }
+
+  def toByte(value: ${enumeration.name}): Byte = value match {
+${enumeration.to_byte_matches}
+    case UnknownValue(v) => v
+  }
+
+  def toDisplayString(value: ${enumeration.name}): String = value match {
+${enumeration.to_display_matches}
+    case UnknownValue(v) => f"$${v & 0xFF}%02X (len=1)"
+  }
+
+  def fromDisplayString(s: String): Option[${enumeration.name}] = {
+    ${enumeration.from_display_matches}
+    None
+  }
+
+  def fromBytes(bytes: Array[Byte]): ${enumeration.name} =
+    fromByte(bytes(0)).getOrElse(UnknownValue(bytes(0)))
+}
+
+'''
+
+[group]
+header = '''
+// ${group.display_name}
+// ${group.description}
+sealed trait ${group.name} extends ByteSequence
+
+object ${group.name} {
+  def decode(bytes: Array[Byte], streamPositionHead: Long): Try[${group.name}] = {
+    if (bytes.length < ${group.size}) return Failure(new Exception("Insufficient bytes for tag"))
+    val tag = ${group.tag_read_expression}
+    val structureBytes = bytes.drop(${group.size})  // Skip tag bytes before passing to structure decoder
+    tag match {
+${group.decode_matches}
+      case _ => Failure(new Exception(s"Unknown tag: $$tag"))
+    }
+  }
+
+  def fromBytes(bytes: Array[Byte]): ${group.name} =
+    decode(bytes, 0L).get
+}
+
+'''
+footer = '''
+'''
+
+[structure]
+header = '''
+// ${structure.display_name}
+// ${structure.description}
+final case class ${structure.name}(
+'''
+footer = '''
+) extends ${structure.parent_trait} with CustomJsonSerializer {
+  override def SizeInBytes: Int = ${structure.name}.SizeInBytes
+  override def toByteSeq: Try[Seq[Byte]] = ${structure.name}.encode(this)
+
+  // JSON serialization - uses json4s automatic case class serialization
+  type ObjectToSerialize = ${structure.name}
+  protected def getObjectToSerialize(): ${structure.name} = this
+}
+
+object ${structure.name} extends ByteSequenceCodec[${structure.name}] {
+  ${structure.marker_def}
+  final val SizeInBytes = ${structure.size}
+
+  // Binary decode/encode
+  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[${structure.name}] = Try {
+    fromBytes(bytes)
+  }
+
+  override def encode(event: ${structure.name}): Try[Seq[Byte]] = Try {
+    toBytes(event)
+  }
+
+  def fromBytes(bytes: Array[Byte]): ${structure.name} = {
+    ${structure.name}(
+${structure.deserialization}
+    )
+  }
+
+  def toBytes(event: ${structure.name}): Seq[Byte] = {
+    val bytes = mutable.ArrayBuffer.empty[Byte]
+${structure.serialization}
+    bytes.toSeq
+  }
+}
+
+'''
+
+[structure.members.default]
+definition = '''  ${member.name}: ${member.type},
+'''
+serialize = '''    bytes.appendAll(event.${member.name}.toByteSeq.get)'''
+deserialize = '''      ${member.name} = ${member.type}.fromBytes(bytes.slice(${buffer.start}, ${buffer.end})),'''
+
+[structure.members.empty]
+definition = '''  // Empty structure
+'''
+serialize = ''
+deserialize = ''
+
+[structure.members.int]
+definition = '''  ${member.name}: ${member.scala_type}, // ${member.description}
+'''
+serialize = '''    bytes.appendAll(BinaryUtils.int${member.size*8}LEtoBytes(event.${member.name}))'''
+deserialize = '''      ${member.name} = BinaryUtils.bytesToInt${member.size*8}LE(bytes, ${buffer.start}),'''
+
+[structure.members.uint]
+definition = '''  ${member.name}: ${member.scala_type}, // ${member.description}
+'''
+serialize = '''    bytes.appendAll(BinaryUtils.uint${member.size*8}LEtoBytes(event.${member.name}))'''
+deserialize = '''      ${member.name} = BinaryUtils.bytesToUint${member.size*8}LE(bytes, ${buffer.start}),'''
+
+[structure.members.bool]
+definition = '''  ${member.name}: Boolean,
+'''
+serialize = '''    bytes.append(if (event.${member.name}) 1.toByte else 0.toByte)'''
+deserialize = '''      ${member.name} = bytes(${buffer.start}) != 0,'''
+
+[structure.members.bytes]
+definition = '''  ${member.name}: Array[Byte],
+'''
+serialize = '''    bytes.appendAll(event.${member.name})'''
+deserialize = '''      ${member.name} = bytes.slice(${buffer.start}, ${buffer.end}),'''
+
+[structure.members.reserved]
+definition = '''  // Reserved: ${member.name} (${member.size} bytes)
+'''
+serialize = '''    bytes.appendAll(Array.fill[Byte](${member.size})(0))'''
+deserialize = '''      // ${member.name}: reserved'''
+
+[structure.members.str]
+definition = '''  ${member.name}: String,
+'''
+serialize = '''    bytes.appendAll(event.${member.name}.getBytes("UTF-8").take(${member.size}).padTo(${member.size}, 0.toByte))'''
+deserialize = '''      ${member.name} = new String(bytes.slice(${buffer.start}, ${buffer.end}).takeWhile(_ != 0), "UTF-8"),'''
+
+[bit_field]
+header = '''
+// ${bit_field.display_name}
+// ${bit_field.description}
+final case class ${bit_field.name}(
+'''
+footer = '''
+) extends ByteSequence with CustomJsonSerializer {
+  override def SizeInBytes: Int = ${bit_field.name}.SizeInBytes
+  override def toByteSeq: Try[Seq[Byte]] = ${bit_field.name}.encode(this)
+
+  // JSON serialization - uses json4s automatic case class serialization
+  type ObjectToSerialize = ${bit_field.name}
+  protected def getObjectToSerialize(): ${bit_field.name} = this
+}
+
+object ${bit_field.name} extends ByteSequenceCodec[${bit_field.name}] {
+  final val SizeInBytes = ${bit_field.size}
+
+  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[${bit_field.name}] = Try {
+    fromBytes(bytes)
+  }
+
+  override def encode(event: ${bit_field.name}): Try[Seq[Byte]] = Try {
+    toBytes(event)
+  }
+
+  def fromBytes(bytes: Array[Byte]): ${bit_field.name} = {
+    ${bit_field.raw_bits_read}
+    ${bit_field.name}(
+${bit_field.deserialization}
+    )
+  }
+
+  def toBytes(value: ${bit_field.name}): Seq[Byte] = {
+${bit_field.serialization}
+  }
+}
+
+'''
+
+[bit_field.members]
+default = '''  ${member.name}: ${member.type},
+'''
+reserved = '''  // Reserved: bits ${member.start}-${member.last}
+'''
+uint = '''  ${member.name}: Int,
+'''
+bool = '''  ${member.name}: Boolean,
+'''
+
+"""
+
+    return tomllib.loads(template)

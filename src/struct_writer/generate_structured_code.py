@@ -11,8 +11,10 @@ from rich.traceback import install
 from struct_writer import (
     default_template_c,
     default_template_rust,
+    default_template_scala,
     render_c,
     render_rust,
+    render_scala,
     templating,
 )
 
@@ -20,7 +22,7 @@ install()
 
 _logger = logging.getLogger(__name__)
 
-languages = ["c", "rust"]
+languages = ["c", "rust", "scala"]
 
 
 @click.command()
@@ -93,6 +95,10 @@ def main(
         "rust": {
             "template": default_template_rust.default_template,
             "renderer": render_rust,
+        },
+        "scala": {
+            "template": default_template_scala.default_template,
+            "renderer": render_scala,
         },
     }
     renderer = lang_mapping[language]["renderer"]

@@ -141,3 +141,8 @@ Cargo.lock
 
 foo.*
 bar.*
+
+# scala
+.bsp/
+.metals/
+.scala-build/
