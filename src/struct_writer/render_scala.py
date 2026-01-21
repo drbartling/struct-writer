@@ -493,6 +493,109 @@ def find_common_fields(
     )
 
 
+def _get_default_value_for_type(scala_type: str) -> str:
+    """Return a default value expression for a Scala type."""
+    defaults = {
+        "Array[Byte]": "Array.empty[Byte]",
+        "Int": "0",
+        "Short": "0",
+        "Byte": "0",
+        "Long": "0L",
+        "Boolean": "false",
+        "String": '""',
+    }
+    return defaults.get(scala_type, f"null.asInstanceOf[{scala_type}]")
+
+
+def _render_group_trait(
+    group_name: str,
+    common_fields: list[tuple[str, str, int]],
+    definitions: dict[str, DefinedType],
+) -> str:
+    """Render the sealed trait declaration for a group."""
+    if not common_fields:
+        return f"sealed trait {group_name} extends ByteSequence\n\n"
+
+    lines = [f"sealed trait {group_name} extends ByteSequence {{"]
+    for field_name, field_type, field_size in common_fields:
+        scala_type = scala_type_for_member(field_type, field_size, definitions)
+        if field_type in definitions:
+            scala_type = field_type
+        lines.append(f"  def {field_name}: {scala_type}")
+    lines.append("}\n")
+    return "\n".join(lines) + "\n"
+
+
+def _render_raw_data_class(
+    group_name: str,
+    group_size: int,
+    common_fields: list[tuple[str, str, int]],
+    definitions: dict[str, DefinedType],
+) -> str:
+    """Render the RawData fallback case class for unrecognized tags."""
+    s = f"/** Fallback for unrecognized tags in {group_name} group - preserves raw bytes */\n"
+    s += f"final case class {group_name}_RawData(\n"
+    s += "  tag: Int,\n"
+    s += "  rawBytes: Array[Byte]\n"
+    s += f") extends {group_name} with CustomJsonSerializer {{\n"
+    s += f"  override def SizeInBytes: Int = rawBytes.length + {group_size}\n"
+    s += (
+        "  override def toByteSeq: Try[Seq[Byte]] = Success(rawBytes.toSeq)\n\n"
+    )
+    s += f"  type ObjectToSerialize = {group_name}_RawDataJson\n"
+    s += f"  protected def getObjectToSerialize(): {group_name}_RawDataJson = "
+    s += f"{group_name}_RawDataJson(tag, rawBytes)\n"
+
+    for field_name, field_type, field_size in common_fields:
+        scala_type = scala_type_for_member(field_type, field_size, definitions)
+        if field_type in definitions:
+            scala_type = field_type
+        default = _get_default_value_for_type(scala_type)
+        s += f"  override def {field_name}: {scala_type} = {default}\n"
+
+    s += "}\n\n"
+
+    # JSON helper class
+    s += f"case class {group_name}_RawDataJson(\n"
+    s += "  tag: Int,\n"
+    s += "  rawBytes: Array[Byte]\n"
+    s += ") {\n"
+    s += f'  val groupType: String = "{group_name}"\n'
+    s += '  val tagHex: String = f"0x${tag}%02X"\n'
+    s += "}\n\n"
+    return s
+
+
+def _render_group_decoder(group_name: str, group: Group) -> str:
+    """Render the decode object for a group."""
+    tag_readers = {
+        BYTES_1: "    val tag = bytes(0) & 0xFF\n",
+        BYTES_2: "    val tag = BinaryUtils.bytesToUint16LE(bytes, 0)\n",
+        BYTES_4: "    val tag = BinaryUtils.bytesToUint32LE(bytes, 0).toInt\n",
+    }
+
+    s = f"object {group_name} {{\n"
+    s += f"  def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{group_name}] = {{\n"
+    s += f'    if (bytes.length < {group.size}) return Failure(new Exception("Insufficient bytes for tag"))\n'
+    s += tag_readers.get(
+        group.size, f"    val tag = bytes({group.size - 1}) & 0xFF\n"
+    )
+    s += f"    val structureBytes = bytes.drop({group.size})\n"
+    s += "    tag match {\n"
+
+    for member in sorted(group.members, key=lambda m: m.value):
+        tag_value = format_large_int(member.value)
+        s += f"case {tag_value} => {member.type}.decode(structureBytes, streamPositionHead).asInstanceOf[Try[{group_name}]]\n"
+
+    s += f"      case _ => Success({group_name}_RawData(tag, structureBytes))\n"
+    s += "    }\n"
+    s += "  }\n\n"
+    s += f"  def fromBytes(bytes: Array[Byte]): {group_name} =\n"
+    s += "    decode(bytes, 0L).get\n"
+    s += "}\n\n"
+    return s
+
+
 def render_group(
     group_name: str,
     definitions: dict[str, DefinedType],
@@ -504,59 +607,16 @@ def render_group(
     if not group.members:
         return ""
 
-    # Find common fields across all members
     common_fields = find_common_fields(group, definitions)
 
     s = f"// {group.display_name}\n"
     s += f"// {group.description}\n"
-
-    if common_fields:
-        # Generate trait with abstract methods for common fields
-        s += f"sealed trait {group_name} extends ByteSequence {{\n"
-        for field_name, field_type, field_size in common_fields:
-            scala_type = scala_type_for_member(
-                field_type, field_size, definitions
-            )
-            # Use the actual type name if it's a defined type
-            if field_type in definitions:
-                scala_type = field_type
-            s += f"  def {field_name}: {scala_type}\n"
-        s += "}\n\n"
-    else:
-        s += f"sealed trait {group_name} extends ByteSequence\n\n"
-
-    # Generate decode object
-    s += f"object {group_name} {{\n"
-    s += f"  def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{group_name}] = {{\n"
-    s += f'    if (bytes.length < {group.size}) return Failure(new Exception("Insufficient bytes for tag"))\n'
-
-    # Determine tag read based on size
-    tag_readers = {
-        BYTES_1: "    val tag = bytes(0) & 0xFF\n",
-        BYTES_2: "    val tag = BinaryUtils.bytesToUint16LE(bytes, 0)\n",
-        BYTES_4: "    val tag = BinaryUtils.bytesToUint32LE(bytes, 0).toInt\n",
-    }
-    s += tag_readers.get(
-        group.size, f"    val tag = bytes({group.size - 1}) & 0xFF\n"
+    s += _render_group_trait(group_name, common_fields, definitions)
+    s += _render_raw_data_class(
+        group_name, group.size, common_fields, definitions
     )
+    s += _render_group_decoder(group_name, group)
 
-    s += f"    val structureBytes = bytes.drop({group.size})  // Skip tag bytes before passing to structure decoder\n"
-    s += "    tag match {\n"
-
-    # Generate match cases (use L suffix for large values)
-    for member in sorted(group.members, key=lambda m: m.value):
-        tag_value = format_large_int(member.value)
-        s += f"case {tag_value} => {member.type}.decode(structureBytes, streamPositionHead).asInstanceOf[Try[{group_name}]]\n"
-
-    s += '      case _ => Failure(new Exception(s"Unknown tag: $tag"))\n'
-    s += "    }\n"
-    s += "  }\n\n"
-
-    s += f"  def fromBytes(bytes: Array[Byte]): {group_name} =\n"
-    s += "    decode(bytes, 0L).get\n"
-    s += "}\n\n"
-
-    # Render member structures with extends trait
     for member in group.members:
         if member.type not in rendered:
             s += render_structure_with_group(
