@@ -142,7 +142,7 @@ Cargo.lock
 foo.*
 bar.*
 
-# scala
+# Scala IDE/build tool files
 .bsp/
 .metals/
 .scala-build/

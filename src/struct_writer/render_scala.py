@@ -438,6 +438,61 @@ def render_structure(
     return s
 
 
+def _get_structure_fields(
+    type_name: str,
+    definitions: dict[str, DefinedType],
+) -> dict[str, tuple[str, int]] | None:
+    """Get fields from a structure as {name: (type, size)} dict, or None if invalid."""
+    if type_name not in definitions:
+        return None
+    structure = definitions[type_name]
+    if not hasattr(structure, "members"):
+        return None
+    return {m.name: (m.type, m.size) for m in structure.members}
+
+
+def find_common_fields(
+    group: Group,
+    definitions: dict[str, DefinedType],
+) -> list[tuple[str, str, int]]:
+    """Find fields that are common to all members of a group.
+
+    Returns a list of (field_name, field_type, field_size) tuples for fields that:
+    1. Exist in ALL member structures
+    2. Have the same type AND size in all members
+
+    This allows generating abstract methods in the sealed trait.
+    """
+    if not group.members:
+        return []
+
+    # Get the first member's fields as the baseline
+    candidate_fields = _get_structure_fields(group.members[0].type, definitions)
+    if candidate_fields is None:
+        return []
+
+    # Check all other members - keep only fields that exist with same type AND size
+    for group_member in group.members[1:]:
+        member_fields = _get_structure_fields(group_member.type, definitions)
+        if member_fields is None:
+            return []
+
+        # Keep only fields that match in both name and (type, size)
+        candidate_fields = {
+            name: type_size
+            for name, type_size in candidate_fields.items()
+            if member_fields.get(name) == type_size
+        }
+
+    # Return as list of tuples (name, type, size), sorted by field name
+    return sorted(
+        [
+            (name, type_, size)
+            for name, (type_, size) in candidate_fields.items()
+        ]
+    )
+
+
 def render_group(
     group_name: str,
     definitions: dict[str, DefinedType],
@@ -449,9 +504,26 @@ def render_group(
     if not group.members:
         return ""
 
+    # Find common fields across all members
+    common_fields = find_common_fields(group, definitions)
+
     s = f"// {group.display_name}\n"
     s += f"// {group.description}\n"
-    s += f"sealed trait {group_name} extends ByteSequence\n\n"
+
+    if common_fields:
+        # Generate trait with abstract methods for common fields
+        s += f"sealed trait {group_name} extends ByteSequence {{\n"
+        for field_name, field_type, field_size in common_fields:
+            scala_type = scala_type_for_member(
+                field_type, field_size, definitions
+            )
+            # Use the actual type name if it's a defined type
+            if field_type in definitions:
+                scala_type = field_type
+            s += f"  def {field_name}: {scala_type}\n"
+        s += "}\n\n"
+    else:
+        s += f"sealed trait {group_name} extends ByteSequence\n\n"
 
     # Generate decode object
     s += f"object {group_name} {{\n"
