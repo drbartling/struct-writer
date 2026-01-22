@@ -373,3 +373,205 @@ def test_render_enum_with_scala_keyword() -> None:
     # Keywords should be escaped with backticks
     assert "case object `type` extends my_enum" in result
     assert "case object `class` extends my_enum" in result
+
+
+def test_group_with_common_fields() -> None:
+    """Test that common fields across group members become abstract methods."""
+    definitions = {
+        "file": {
+            "brief": "Test file",
+            "description": "Testing common fields",
+        },
+        "events": {
+            "description": "Event group with common timestamp",
+            "display_name": "Events",
+            "type": "group",
+            "size": 2,
+        },
+        "event_a": {
+            "description": "First event type",
+            "display_name": "Event A",
+            "type": "structure",
+            "size": 10,
+            "members": [
+                {
+                    "name": "timestamp",
+                    "size": 8,
+                    "type": "uint",
+                    "description": "Event timestamp",
+                },
+                {
+                    "name": "value_a",
+                    "size": 2,
+                    "type": "uint",
+                    "description": "Value specific to A",
+                },
+            ],
+            "groups": {
+                "events": {
+                    "value": 1,
+                    "name": "a",
+                },
+            },
+        },
+        "event_b": {
+            "description": "Second event type",
+            "display_name": "Event B",
+            "type": "structure",
+            "size": 12,
+            "members": [
+                {
+                    "name": "timestamp",
+                    "size": 8,
+                    "type": "uint",
+                    "description": "Event timestamp",
+                },
+                {
+                    "name": "value_b",
+                    "size": 4,
+                    "type": "uint",
+                    "description": "Value specific to B",
+                },
+            ],
+            "groups": {
+                "events": {
+                    "value": 2,
+                    "name": "b",
+                },
+            },
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("my_file.scala")
+    )
+    # Common field should become abstract method on trait
+    assert "sealed trait events extends ByteSequence {" in result
+    assert "def timestamp: Long" in result
+    # Member structures should still work
+    assert "final case class event_a(" in result
+    assert "final case class event_b(" in result
+
+
+def test_raw_data_fallback_class() -> None:
+    """Test that RawData fallback class is generated for groups."""
+    definitions = {
+        "file": {
+            "brief": "Test file",
+            "description": "Testing RawData fallback",
+        },
+        "commands": {
+            "description": "Command group",
+            "display_name": "Commands",
+            "type": "group",
+            "size": 2,
+        },
+        "cmd_reset": {
+            "description": "Reset command",
+            "display_name": "Reset",
+            "type": "structure",
+            "size": 0,
+            "groups": {
+                "commands": {
+                    "value": 1,
+                    "name": "reset",
+                },
+            },
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("my_file.scala")
+    )
+    # RawData class should exist
+    assert "final case class commands_RawData(" in result
+    assert "tag: Int," in result
+    assert "rawBytes: Array[Byte]" in result
+    assert "extends commands with CustomJsonSerializer" in result
+    # RawData JSON helper should exist
+    assert "case class commands_RawDataJson(" in result
+    # Fallback in match should use RawData instead of Failure
+    assert "case _ => Success(commands_RawData(tag, structureBytes))" in result
+
+
+def test_raw_data_with_common_fields() -> None:
+    """Test that RawData provides default implementations for common fields."""
+    definitions = {
+        "file": {
+            "brief": "Test file",
+            "description": "Testing RawData with common fields",
+        },
+        "events": {
+            "description": "Event group",
+            "display_name": "Events",
+            "type": "group",
+            "size": 2,
+        },
+        "event_a": {
+            "description": "Event A",
+            "display_name": "Event A",
+            "type": "structure",
+            "size": 9,
+            "members": [
+                {
+                    "name": "timestamp",
+                    "size": 8,
+                    "type": "uint",
+                    "description": "Timestamp",
+                },
+                {
+                    "name": "flag",
+                    "size": 1,
+                    "type": "bool",
+                    "description": "Flag",
+                },
+            ],
+            "groups": {
+                "events": {
+                    "value": 1,
+                    "name": "a",
+                },
+            },
+        },
+        "event_b": {
+            "description": "Event B",
+            "display_name": "Event B",
+            "type": "structure",
+            "size": 10,
+            "members": [
+                {
+                    "name": "timestamp",
+                    "size": 8,
+                    "type": "uint",
+                    "description": "Timestamp",
+                },
+                {
+                    "name": "flag",
+                    "size": 1,
+                    "type": "bool",
+                    "description": "Flag",
+                },
+                {
+                    "name": "extra",
+                    "size": 1,
+                    "type": "uint",
+                    "description": "Extra field",
+                },
+            ],
+            "groups": {
+                "events": {
+                    "value": 2,
+                    "name": "b",
+                },
+            },
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("my_file.scala")
+    )
+    # RawData should have default implementations for common fields
+    assert "events_RawData" in result
+    # Check default values are provided
+    assert "override def timestamp: Long = 0" in result
+    assert "override def flag: Boolean = false" in result
