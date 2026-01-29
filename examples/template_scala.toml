@@ -121,6 +121,15 @@ object BinaryUtils {
   def int8LEtoBytes(value: Byte): Array[Byte] = Array(value)
   def bytesToUint8LE(bytes: Array[Byte], offset: Int): Int = bytesToUint8(bytes, offset)
   def uint8LEtoBytes(value: Int): Array[Byte] = Array(uint8ToBytes(value))
+
+  // Hex string parsing utilities for JSON deserialization
+  def parseHexString(hex: String): Long = {
+    val cleaned = hex.stripPrefix("0x").stripPrefix("0X")
+    java.lang.Long.parseLong(cleaned, 16)
+  }
+
+  def parseHexStringToInt(hex: String): Int = parseHexString(hex).toInt
+  def parseHexStringToByte(hex: String): Byte = parseHexString(hex).toByte
 }
 
 // Base trait for all generated structures
@@ -152,11 +161,9 @@ trait CustomJsonSerializer {
 
 // JSON deserialization trait
 trait CustomJsonDeserializer[D <: AnyRef] {
+  implicit val formats: Formats = DefaultFormats
 
-  def deserialize(json: String): D = {
-    implicit val formats: Formats = DefaultFormats
-    fromJson(json)
-  }
+  def deserialize(json: String): D = fromJson(json)
 
   def deserializeFromJValue(jValue: JValue): D = {
     val json = compact(render(jValue))
