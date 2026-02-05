@@ -42,6 +42,48 @@ SIGNED_SHORT_MAX = 0x8000  # 32768
 SIGNED_INT_MAX = 0x80000000  # 2^31
 SIGNED_LONG_MAX = 0x8000000000000000  # 2^63
 
+# Type mappings for Scala primitives (used across multiple functions)
+INT_TYPE_MAP = {
+    BYTES_1: "Byte",
+    BYTES_2: "Short",
+    BYTES_4: "Int",
+    BYTES_8: "Long",
+}
+UINT_TYPE_MAP = {
+    BYTES_1: "Int",
+    BYTES_2: "Int",
+    BYTES_4: "Long",
+    BYTES_8: "Long",
+}
+
+# Binary decode functions for integer types
+INT_DECODE_FUNCS = {
+    BYTES_1: "bytesToInt8LE",
+    BYTES_2: "bytesToInt16LE",
+    BYTES_4: "bytesToInt32LE",
+    BYTES_8: "bytesToInt64LE",
+}
+UINT_DECODE_FUNCS = {
+    BYTES_1: "bytesToUint8LE",
+    BYTES_2: "bytesToUint16LE",
+    BYTES_4: "bytesToUint32LE",
+    BYTES_8: "bytesToUint64LE",
+}
+
+# Binary encode functions for integer types
+INT_ENCODE_FUNCS = {
+    BYTES_1: "int8LEtoBytes",
+    BYTES_2: "int16LEtoBytes",
+    BYTES_4: "int32LEtoBytes",
+    BYTES_8: "int64LEtoBytes",
+}
+UINT_ENCODE_FUNCS = {
+    BYTES_1: "uint8LEtoBytes",
+    BYTES_2: "uint16LEtoBytes",
+    BYTES_4: "uint32LEtoBytes",
+    BYTES_8: "uint64LEtoBytes",
+}
+
 # Scala reserved keywords that need backtick escaping
 SCALA_KEYWORDS = {
     "abstract",
@@ -208,22 +250,9 @@ def scala_type_for_member(
     definitions: dict[str, DefinedType],  # noqa: ARG001
 ) -> str:
     """Get the Scala type for a structure member."""
-    # Type mappings for primitive types
-    int_types = {
-        BYTES_1: "Byte",
-        BYTES_2: "Short",
-        BYTES_4: "Int",
-        BYTES_8: "Long",
-    }
-    uint_types = {
-        BYTES_1: "Int",
-        BYTES_2: "Int",
-        BYTES_4: "Long",
-        BYTES_8: "Long",
-    }
     type_map = {
-        "int": int_types.get(size, "Int"),
-        "uint": uint_types.get(size, "Long"),
+        "int": INT_TYPE_MAP.get(size, "Int"),
+        "uint": UINT_TYPE_MAP.get(size, "Long"),
         "bool": "Boolean" if size == BYTES_1 else "Array[Byte]",
         "bytes": "Array[Byte]",
         "reserved": "Array[Byte]",
@@ -245,23 +274,10 @@ def decode_call_for_member(
     size = member["size"]
     end = offset + size
 
-    int_funcs = {
-        BYTES_1: "bytesToInt8LE",
-        BYTES_2: "bytesToInt16LE",
-        BYTES_4: "bytesToInt32LE",
-        BYTES_8: "bytesToInt64LE",
-    }
-    uint_funcs = {
-        BYTES_1: "bytesToUint8LE",
-        BYTES_2: "bytesToUint16LE",
-        BYTES_4: "bytesToUint32LE",
-        BYTES_8: "bytesToUint64LE",
-    }
-
-    if member_type == "int" and size in int_funcs:
-        return f"BinaryUtils.{int_funcs[size]}(bytes, {offset})"
-    if member_type == "uint" and size in uint_funcs:
-        return f"BinaryUtils.{uint_funcs[size]}(bytes, {offset})"
+    if member_type == "int" and size in INT_DECODE_FUNCS:
+        return f"BinaryUtils.{INT_DECODE_FUNCS[size]}(bytes, {offset})"
+    if member_type == "uint" and size in UINT_DECODE_FUNCS:
+        return f"BinaryUtils.{UINT_DECODE_FUNCS[size]}(bytes, {offset})"
     if member_type == "bool" and size == BYTES_1:
         return f"bytes({offset}) != 0"
     if member_type == "str":
@@ -274,22 +290,9 @@ def decode_call_for_member(
 def _json_type_for_primitive(member_type: str, size: int) -> str | None:
     """Get JSON type for primitive member types."""
     if member_type == "int":
-        int_types = {
-            BYTES_1: "Byte",
-            BYTES_2: "Short",
-            BYTES_4: "Int",
-            BYTES_8: "Long",
-        }
-        return int_types.get(size, "Int")
+        return INT_TYPE_MAP.get(size, "Int")
     if member_type == "uint":
-        # All uint sizes use appropriate integer types (not hex strings)
-        uint_types = {
-            BYTES_1: "Int",
-            BYTES_2: "Int",
-            BYTES_4: "Long",
-            BYTES_8: "Long",
-        }
-        return uint_types.get(size, "Long")
+        return UINT_TYPE_MAP.get(size, "Long")
     primitive_map = {
         "bool": "Boolean",
         "bytes": "Array[Byte]",
@@ -320,16 +323,6 @@ def json_type_for_member(
     return "JValue"  # Fallback
 
 
-def _scala_to_json_for_uint(member_name: str) -> str:
-    """Get Scala to JSON conversion for unsigned int.
-
-    All uint values are output as integers (not hex strings) for consistency
-    and easier consumption by downstream systems.
-    """
-    # All sizes output as integers - no hex formatting
-    return member_name
-
-
 def _scala_to_json_for_defined_type(
     member_name: str, member_type: str, definitions: dict[str, DefinedType]
 ) -> str:
@@ -358,9 +351,9 @@ def scala_to_json_conversion(
     if member_type in ("int", "bool", "bytes", "str"):
         return member_name
 
-    # Unsigned int with hex formatting
+    # Unsigned int - pass through as-is (JSON type matches Scala type)
     if member_type == "uint":
-        return _scala_to_json_for_uint(member_name)
+        return member_name
 
     # Reserved fields as hex string
     if member_type == "reserved":
@@ -397,7 +390,6 @@ def json_to_scala_conversion(
     """Generate the conversion from JSON value to Scala type."""
     member_type = member["type"]
     member_name = member["name"]
-    size = member["size"]
 
     # Direct passthrough types
     if member_type in ("int", "bool", "bytes", "str"):
@@ -407,13 +399,9 @@ def json_to_scala_conversion(
     if member_type == "reserved":
         return f"j.{member_name}.grouped(2).map(s => Integer.parseInt(s, 16).toByte).toArray"
 
-    # Unsigned integers - direct assignment with appropriate type conversion
+    # Unsigned integers - direct assignment (JSON type matches Scala type)
     if member_type == "uint":
-        # JSON uses Int for 1-2 byte, Long for 4-8 byte
-        # Scala field uses Int/Long based on size
-        if size <= BYTES_2:
-            return f"j.{member_name}"
-        return f"j.{member_name}"  # Already Long in JSON
+        return f"j.{member_name}"
 
     # Defined types (enums, structures, groups)
     if member_type in definitions:
@@ -433,23 +421,10 @@ def encode_call_for_member(
     member_name = member["name"]
     size = member["size"]
 
-    int_funcs = {
-        BYTES_1: "int8LEtoBytes",
-        BYTES_2: "int16LEtoBytes",
-        BYTES_4: "int32LEtoBytes",
-        BYTES_8: "int64LEtoBytes",
-    }
-    uint_funcs = {
-        BYTES_1: "uint8LEtoBytes",
-        BYTES_2: "uint16LEtoBytes",
-        BYTES_4: "uint32LEtoBytes",
-        BYTES_8: "uint64LEtoBytes",
-    }
-
-    if member_type == "int" and size in int_funcs:
-        return f"bytes.appendAll(BinaryUtils.{int_funcs[size]}(event.{member_name}))"
-    if member_type == "uint" and size in uint_funcs:
-        return f"bytes.appendAll(BinaryUtils.{uint_funcs[size]}(event.{member_name}))"
+    if member_type == "int" and size in INT_ENCODE_FUNCS:
+        return f"bytes.appendAll(BinaryUtils.{INT_ENCODE_FUNCS[size]}(event.{member_name}))"
+    if member_type == "uint" and size in UINT_ENCODE_FUNCS:
+        return f"bytes.appendAll(BinaryUtils.{UINT_ENCODE_FUNCS[size]}(event.{member_name}))"
     if member_type == "bool" and size == BYTES_1:
         return f"bytes.append(if (event.{member_name}) 1.toByte else 0.toByte)"
     if member_type == "str":
@@ -1023,105 +998,88 @@ def render_structure_with_group(
     )
 
 
-def render_bit_field(  # noqa: C901, PLR0912, PLR0915
-    bit_field_name: str,
-    definitions: dict[str, DefinedType],
-    templates: dict[str, Any],
+# Bitfield read/write functions based on bit size
+BITFIELD_READ_FUNCS = {
+    BITS_8: "bytesToUint8LE",
+    BITS_16: "bytesToUint16LE",
+    BITS_32: "bytesToUint32LE",
+    BITS_64: "bytesToUint64LE",
+}
+BITFIELD_WRITE_FUNCS = {
+    BITS_8: "uint8LEtoBytes",
+    BITS_16: "uint16LEtoBytes",
+    BITS_32: "uint32LEtoBytes",
+    BITS_64: "uint64LEtoBytes",
+}
+BITFIELD_RAW_TYPES = {
+    BITS_8: "Int",
+    BITS_16: "Int",
+    BITS_32: "Int",
+    BITS_64: "Long",
+}
+
+
+def _get_bitfield_scala_type(member: dict[str, Any]) -> str:
+    """Get Scala type for a bitfield member."""
+    if member["type"] == "bool" and member["bits"] == 1:
+        return "Boolean"
+    return "Int"
+
+
+def _render_bitfield_case_class(
+    bit_field_name: str, members: list[dict[str, Any]]
 ) -> str:
-    """Render a Scala bit field as a case class with bit manipulation."""
-    bit_field = definitions[bit_field_name].as_bit_field()
-    bit_field_dict = bit_field.to_dict()
-
-    # Render any member types first
-    s = ""
-    for member in bit_field.members:
-        if member.type in definitions and member.type not in rendered:
-            s += render_definition(member.type, definitions, templates)
-
-    # Determine the underlying type for bit operations
-    bits = bit_field_dict["size"] * 8
-    read_funcs = {
-        BITS_8: "bytesToUint8LE",
-        BITS_16: "bytesToUint16LE",
-        BITS_32: "bytesToUint32LE",
-        BITS_64: "bytesToUint64LE",
-    }
-    write_funcs = {
-        BITS_8: "uint8LEtoBytes",
-        BITS_16: "uint16LEtoBytes",
-        BITS_32: "uint32LEtoBytes",
-        BITS_64: "uint64LEtoBytes",
-    }
-    read_func = read_funcs.get(bits, "bytesToUint32LE")
-    write_func = write_funcs.get(bits, "uint32LEtoBytes")
-
-    # Build case class
-    s += f"// {bit_field_dict['display_name']}\n"
-    s += f"// {bit_field_dict['description']}\n"
-    s += f"final case class {bit_field_name}(\n"
-
-    # Generate fields (excluding reserved)
+    """Render the bitfield case class definition."""
+    s = f"final case class {bit_field_name}(\n"
     member_lines = []
-    for member in bit_field_dict.get("members", []):
+    for member in members:
         if member["type"] == "reserved":
             last_bit = member["start"] + member["bits"] - 1
             s += f"  // Reserved: bits {member['start']}-{last_bit}\n"
         else:
-            scala_type = "Int"  # Bit fields are typically small enough for Int
-            if member["type"] == "bool":
-                scala_type = "Boolean" if member["bits"] == 1 else "Int"
+            scala_type = _get_bitfield_scala_type(member)
             member_lines.append(f"  {member['name']}: {scala_type},")
 
     s += "\n".join(member_lines)
     s += "\n) extends ByteSequence with CustomJsonSerializer {\n"
     s += f"  override def SizeInBytes: Int = {bit_field_name}.SizeInBytes\n"
-    s += f"  override def toByteSeq: Try[Seq[Byte]] = {bit_field_name}.encode(this)\n"
-    s += "\n"
+    s += f"  override def toByteSeq: Try[Seq[Byte]] = {bit_field_name}.encode(this)\n\n"
     s += "  // JSON serialization - convert to JSON-friendly intermediate form with type discriminator\n"
     s += f"  type ObjectToSerialize = {bit_field_name}Json\n"
     s += f"  protected def getObjectToSerialize(): {bit_field_name}Json = {bit_field_name}Json(\n"
     s += f'    _type = "{bit_field_name}",\n'
-    # Generate conversion for each non-reserved member
-    for member in bit_field_dict.get("members", []):
-        if member["type"] == "reserved":
-            continue
-        s += f"    {member['name']} = {member['name']},\n"
-    s += "  )\n"
-    s += "}\n\n"
+    for member in members:
+        if member["type"] != "reserved":
+            s += f"    {member['name']} = {member['name']},\n"
+    s += "  )\n}\n\n"
+    return s
 
-    # Generate JSON intermediate case class for serialization/deserialization
-    s += f"// JSON intermediate class for {bit_field_name} serialization/deserialization\n"
+
+def _render_bitfield_json_class(
+    bit_field_name: str, members: list[dict[str, Any]]
+) -> str:
+    """Render the JSON intermediate class for bitfield."""
+    s = f"// JSON intermediate class for {bit_field_name} serialization/deserialization\n"
     s += f"case class {bit_field_name}Json(\n"
-    s += "  _type: String,\n"  # Type discriminator field
-    json_field_lines = []
-    for member in bit_field_dict.get("members", []):
-        if member["type"] == "reserved":
-            continue
-        if member["type"] == "bool" and member["bits"] == 1:
-            json_field_lines.append(f"  {member['name']}: Boolean")
-        else:
-            json_field_lines.append(f"  {member['name']}: Int")
+    s += "  _type: String,\n"
+    json_field_lines = [
+        f"  {m['name']}: {_get_bitfield_scala_type(m)}"
+        for m in members
+        if m["type"] != "reserved"
+    ]
     s += ",\n".join(json_field_lines)
     s += "\n)\n\n"
+    return s
 
-    # Generate companion object with CustomJsonDeserializer
-    s += f"object {bit_field_name} extends ByteSequenceCodec[{bit_field_name}] with CustomJsonDeserializer[{bit_field_name}] {{\n"
-    s += f"  final val SizeInBytes = {bit_field_dict['size']}\n\n"
 
-    s += f"  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{bit_field_name}] = Try {{\n"
-    s += "    fromBytes(bytes)\n"
-    s += "  }\n\n"
-
-    s += f"  override def encode(event: {bit_field_name}): Try[Seq[Byte]] = Try {{\n"
-    s += "    toBytes(event)\n"
-    s += "  }\n\n"
-
-    # Generate fromBytes
-    s += f"  def fromBytes(bytes: Array[Byte]): {bit_field_name} = {{\n"
+def _render_bitfield_from_bytes(
+    bit_field_name: str, members: list[dict[str, Any]], read_func: str
+) -> str:
+    """Render the fromBytes method for bitfield."""
+    s = f"  def fromBytes(bytes: Array[Byte]): {bit_field_name} = {{\n"
     s += f"    val rawBits = BinaryUtils.{read_func}(bytes, 0)\n"
     s += f"    {bit_field_name}(\n"
-
-    for member in bit_field_dict.get("members", []):
+    for member in members:
         if member["type"] == "reserved":
             continue
         mask = (1 << member["bits"]) - 1
@@ -1131,18 +1089,20 @@ def render_bit_field(  # noqa: C901, PLR0912, PLR0915
             s += f"      {member['name']} = ((rawBits >> {shift}) & {mask_str}) != 0,\n"
         else:
             s += f"      {member['name']} = ((rawBits >> {shift}) & {mask_str}).toInt,\n"
+    s += "    )\n  }\n\n"
+    return s
 
-    s += "    )\n"
-    s += "  }\n\n"
 
-    # Generate toBytes
-    scala_raw_type = {8: "Int", 16: "Int", 32: "Int", 64: "Long"}.get(
-        bits, "Int"
-    )
-    s += f"  def toBytes(value: {bit_field_name}): Seq[Byte] = {{\n"
-    s += f"    var rawBits: {scala_raw_type} = 0\n"
-
-    for member in bit_field_dict.get("members", []):
+def _render_bitfield_to_bytes(
+    bit_field_name: str,
+    members: list[dict[str, Any]],
+    write_func: str,
+    raw_type: str,
+) -> str:
+    """Render the toBytes method for bitfield."""
+    s = f"  def toBytes(value: {bit_field_name}): Seq[Byte] = {{\n"
+    s += f"    var rawBits: {raw_type} = 0\n"
+    for member in members:
         if member["type"] == "reserved":
             continue
         mask = (1 << member["bits"]) - 1
@@ -1152,22 +1112,70 @@ def render_bit_field(  # noqa: C901, PLR0912, PLR0915
             s += f"    rawBits |= ((if (value.{member['name']}) 1 else 0) << {shift})\n"
         else:
             s += f"    rawBits |= ((value.{member['name']} & {mask_str}) << {shift})\n"
+    s += f"    BinaryUtils.{write_func}(rawBits).toSeq\n  }}\n\n"
+    return s
 
-    # All write functions work with the rawBits directly
-    s += f"    BinaryUtils.{write_func}(rawBits).toSeq\n"
-    s += "  }\n\n"
 
-    # Generate fromJson (JSON deserialization)
+def _render_bitfield_companion(
+    bit_field_name: str,
+    bit_field_dict: dict[str, Any],
+    members: list[dict[str, Any]],
+    bit_funcs: dict[str, str],
+) -> str:
+    """Render the companion object for bitfield.
+
+    Args:
+        bit_funcs: Dict with 'read', 'write', and 'raw_type' keys
+    """
+    s = f"object {bit_field_name} extends ByteSequenceCodec[{bit_field_name}] with CustomJsonDeserializer[{bit_field_name}] {{\n"
+    s += f"  final val SizeInBytes = {bit_field_dict['size']}\n\n"
+    s += f"  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{bit_field_name}] = Try {{\n"
+    s += "    fromBytes(bytes)\n  }\n\n"
+    s += f"  override def encode(event: {bit_field_name}): Try[Seq[Byte]] = Try {{\n"
+    s += "    toBytes(event)\n  }\n\n"
+    s += _render_bitfield_from_bytes(bit_field_name, members, bit_funcs["read"])
+    s += _render_bitfield_to_bytes(
+        bit_field_name, members, bit_funcs["write"], bit_funcs["raw_type"]
+    )
     s += "  // JSON deserialization\n"
     s += f"  override protected def fromJson(json: String)(implicit formats: Formats): {bit_field_name} = {{\n"
     s += f"    val j = Serialization.read[{bit_field_name}Json](json)\n"
     s += f"    {bit_field_name}(\n"
-    for member in bit_field_dict.get("members", []):
-        if member["type"] == "reserved":
-            continue
-        s += f"      {member['name']} = j.{member['name']},\n"
-    s += "    )\n"
-    s += "  }\n"
-    s += "}\n\n"
+    for member in members:
+        if member["type"] != "reserved":
+            s += f"      {member['name']} = j.{member['name']},\n"
+    s += "    )\n  }\n}\n\n"
+    return s
 
+
+def render_bit_field(
+    bit_field_name: str,
+    definitions: dict[str, DefinedType],
+    templates: dict[str, Any],
+) -> str:
+    """Render a Scala bit field as a case class with bit manipulation."""
+    bit_field = definitions[bit_field_name].as_bit_field()
+    bit_field_dict = bit_field.to_dict()
+    members = bit_field_dict.get("members", [])
+
+    # Render any member types first
+    s = ""
+    for member in bit_field.members:
+        if member.type in definitions and member.type not in rendered:
+            s += render_definition(member.type, definitions, templates)
+
+    # Determine the underlying type for bit operations
+    bits = bit_field_dict["size"] * BITS_8
+    bit_funcs = {
+        "read": BITFIELD_READ_FUNCS.get(bits, "bytesToUint32LE"),
+        "write": BITFIELD_WRITE_FUNCS.get(bits, "uint32LEtoBytes"),
+        "raw_type": BITFIELD_RAW_TYPES.get(bits, "Int"),
+    }
+
+    s += f"// {bit_field_dict['display_name']}\n// {bit_field_dict['description']}\n"
+    s += _render_bitfield_case_class(bit_field_name, members)
+    s += _render_bitfield_json_class(bit_field_name, members)
+    s += _render_bitfield_companion(
+        bit_field_name, bit_field_dict, members, bit_funcs
+    )
     return s
