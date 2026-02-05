@@ -36,6 +36,12 @@ BYTES_2 = 2
 BYTES_4 = 4
 BYTES_8 = 8
 
+# Signed integer boundaries (values at or above these become negative in signed types)
+SIGNED_BYTE_MAX = 0x80  # 128
+SIGNED_SHORT_MAX = 0x8000  # 32768
+SIGNED_INT_MAX = 0x80000000  # 2^31
+SIGNED_LONG_MAX = 0x8000000000000000  # 2^63
+
 # Scala reserved keywords that need backtick escaping
 SCALA_KEYWORDS = {
     "abstract",
@@ -276,7 +282,14 @@ def _json_type_for_primitive(member_type: str, size: int) -> str | None:
         }
         return int_types.get(size, "Int")
     if member_type == "uint":
-        return "Int" if size == BYTES_1 else "String"  # Hex string for > 1 byte
+        # All uint sizes use appropriate integer types (not hex strings)
+        uint_types = {
+            BYTES_1: "Int",
+            BYTES_2: "Int",
+            BYTES_4: "Long",
+            BYTES_8: "Long",
+        }
+        return uint_types.get(size, "Long")
     primitive_map = {
         "bool": "Boolean",
         "bytes": "Array[Byte]",
@@ -307,13 +320,14 @@ def json_type_for_member(
     return "JValue"  # Fallback
 
 
-def _scala_to_json_for_uint(member_name: str, size: int) -> str:
-    """Get Scala to JSON conversion for unsigned int."""
-    if size == BYTES_1:
-        return member_name
-    hex_formats = {BYTES_2: "%04X", BYTES_4: "%08X", BYTES_8: "%016X"}
-    fmt = hex_formats.get(size, "%016X")
-    return f'f"0x${{{member_name}}}{fmt}"'
+def _scala_to_json_for_uint(member_name: str) -> str:
+    """Get Scala to JSON conversion for unsigned int.
+
+    All uint values are output as integers (not hex strings) for consistency
+    and easier consumption by downstream systems.
+    """
+    # All sizes output as integers - no hex formatting
+    return member_name
 
 
 def _scala_to_json_for_defined_type(
@@ -339,7 +353,6 @@ def scala_to_json_conversion(
     """Generate the conversion from Scala type to JSON-friendly type."""
     member_type = member["type"]
     member_name = member["name"]
-    size = member["size"]
 
     # Direct passthrough types
     if member_type in ("int", "bool", "bytes", "str"):
@@ -347,7 +360,7 @@ def scala_to_json_conversion(
 
     # Unsigned int with hex formatting
     if member_type == "uint":
-        return _scala_to_json_for_uint(member_name, size)
+        return _scala_to_json_for_uint(member_name)
 
     # Reserved fields as hex string
     if member_type == "reserved":
@@ -394,12 +407,13 @@ def json_to_scala_conversion(
     if member_type == "reserved":
         return f"j.{member_name}.grouped(2).map(s => Integer.parseInt(s, 16).toByte).toArray"
 
-    # Unsigned integers need hex parsing for sizes > 1 byte
+    # Unsigned integers - direct assignment with appropriate type conversion
     if member_type == "uint":
-        if size == BYTES_1:
+        # JSON uses Int for 1-2 byte, Long for 4-8 byte
+        # Scala field uses Int/Long based on size
+        if size <= BYTES_2:
             return f"j.{member_name}"
-        suffix = ".toInt" if size == BYTES_2 else ""
-        return f"BinaryUtils.parseHexString(j.{member_name}){suffix}"
+        return f"j.{member_name}"  # Already Long in JSON
 
     # Defined types (enums, structures, groups)
     if member_type in definitions:
@@ -445,82 +459,204 @@ def encode_call_for_member(
     return f"bytes.appendAll(event.{member_name})"
 
 
+def _get_enum_type_info(size: int) -> dict[str, str]:
+    """Get Scala type information for an enum based on its byte size.
+
+    Returns a dict with:
+    - scala_type: The Scala type for the value (Byte, Short, Int, Long)
+    - read_func: The BinaryUtils function to read the value
+    - write_func: The BinaryUtils function to write the value
+    - mask: The bit mask for the type
+    - hex_format: The printf format for hex display
+    - to_type: Cast expression to convert to the type
+    """
+    type_info = {
+        BYTES_1: {
+            "scala_type": "Byte",
+            "read_expr": "bytes(0)",
+            "write_func": "int8LEtoBytes",
+            "mask": "0xFF",
+            "hex_format": "%02X",
+            "to_type": ".toByte",
+            "parse_to_type": ".toByte",
+        },
+        BYTES_2: {
+            "scala_type": "Short",
+            "read_expr": "BinaryUtils.bytesToInt16LE(bytes, 0)",
+            "write_func": "int16LEtoBytes",
+            "mask": "0xFFFF",
+            "hex_format": "%04X",
+            "to_type": ".toShort",
+            "parse_to_type": ".toShort",
+        },
+        BYTES_4: {
+            "scala_type": "Int",
+            "read_expr": "BinaryUtils.bytesToInt32LE(bytes, 0)",
+            "write_func": "int32LEtoBytes",
+            "mask": "0xFFFFFFFFL",
+            "hex_format": "%08X",
+            "to_type": "",
+            "parse_to_type": "",
+        },
+        BYTES_8: {
+            "scala_type": "Long",
+            "read_expr": "BinaryUtils.bytesToInt64LE(bytes, 0)",
+            "write_func": "int64LEtoBytes",
+            "mask": "0xFFFFFFFFFFFFFFFFL",
+            "hex_format": "%016X",
+            "to_type": ".toLong",
+            "parse_to_type": ".toLong",
+        },
+    }
+    return type_info.get(size, type_info[BYTES_1])
+
+
+def _to_signed_value(value: int, size: int) -> int:
+    """Convert an unsigned value to its signed equivalent for the given byte size.
+
+    This is needed because Scala's Byte/Short/Int are signed types, so values
+    >= 2^(bits-1) need to be represented as negative numbers for pattern matching.
+
+    Args:
+        value: The unsigned integer value
+        size: Size in bytes (1, 2, 4, or 8)
+
+    Returns:
+        The signed equivalent for pattern matching in Scala
+    """
+    # Map size to (boundary, range) for signed conversion
+    signed_conversions = {
+        BYTES_1: (SIGNED_BYTE_MAX, 0x100),
+        BYTES_2: (SIGNED_SHORT_MAX, 0x10000),
+        BYTES_4: (SIGNED_INT_MAX, 0x100000000),
+        BYTES_8: (SIGNED_LONG_MAX, 0x10000000000000000),
+    }
+    if size in signed_conversions:
+        boundary, type_range = signed_conversions[size]
+        if value >= boundary:
+            return value - type_range
+    return value
+
+
+def _render_enum_value_methods(
+    element_name: str,
+    values: list[dict[str, Any]],
+    size: int,
+    scala_type: str,
+    to_type: str,
+) -> str:
+    """Render fromValue and toValue methods for enum."""
+    s = f"  def fromValue(value: {scala_type}): Option[{element_name}] = value match {{\n"
+    for value in values:
+        escaped_label = escape_scala_keyword(value["label"])
+        signed_value = _to_signed_value(value["value"], size)
+        value_literal = format_large_int(signed_value)
+        s += f"case {value_literal} => Some({element_name}.{escaped_label})\n"
+    s += "    case _ => None\n"
+    s += "  }\n\n"
+
+    s += (
+        f"  def toValue(value: {element_name}): {scala_type} = value match {{\n"
+    )
+    for value in values:
+        escaped_label = escape_scala_keyword(value["label"])
+        signed_value = _to_signed_value(value["value"], size)
+        value_literal = format_large_int(signed_value)
+        s += (
+            f"case {element_name}.{escaped_label} => {value_literal}{to_type}\n"
+        )
+    s += "    case UnknownValue(v) => v\n"
+    s += "  }\n\n"
+    return s
+
+
+def _render_enum_display_methods(
+    element_name: str,
+    values: list[dict[str, Any]],
+    mask: str,
+    hex_format: str,
+    parse_to_type: str,
+) -> str:
+    """Render toDisplayString and fromDisplayString methods for enum."""
+    s = f"  def toDisplayString(value: {element_name}): String = value match {{\n"
+    for value in values:
+        escaped_label = escape_scala_keyword(value["label"])
+        s += f'case {element_name}.{escaped_label} => "{value["label"]}"\n'
+    s += f'    case UnknownValue(v) => f"0x${{v & {mask}}}{hex_format}"\n'
+    s += "  }\n\n"
+
+    s += f"  def fromDisplayString(s: String): Option[{element_name}] = {{\n"
+    for value in values:
+        escaped_label = escape_scala_keyword(value["label"])
+        s += f'    if (s == "{value["label"]}") return Some({element_name}.{escaped_label})\n'
+    s += '    // Parse UnknownValue format like "0x1111" or "0x00"\n'
+    s += '    val hexPattern = """^0x([0-9A-Fa-f]+)$""".r\n'
+    s += "    s match {\n"
+    s += "      case hexPattern(hexValue) =>\n"
+    s += f"        try {{ Some(UnknownValue(java.lang.Long.parseLong(hexValue, 16){parse_to_type})) }}\n"
+    s += "        catch { case _: NumberFormatException => None }\n"
+    s += "      case _ => None\n"
+    s += "    }\n"
+    s += "  }\n\n"
+    return s
+
+
 def render_enum(
     element_name: str,
     definitions: dict[str, DefinedType],
     templates: dict[str, Any],  # noqa: ARG001
 ) -> str:
-    """Render a Scala enum as a sealed trait with case objects."""
+    """Render a Scala enum as a sealed trait with case objects.
+
+    Supports multi-byte enums (1, 2, 4, or 8 bytes) by using appropriate
+    Scala types (Byte, Short, Int, Long) and BinaryUtils functions.
+    """
     enumeration = definitions[element_name]
     enum_dict = enumeration.to_dict()
+    size = enum_dict["size"]
+    values = enum_dict.get("values", [])
+
+    type_info = _get_enum_type_info(size)
+    scala_type = type_info["scala_type"]
 
     s = f"""// {enum_dict["display_name"]}
 // {enum_dict["description"]}
 sealed trait {element_name} extends ByteSequence {{
-  override def SizeInBytes: Int = {enum_dict["size"]}
-  override def toByteSeq: Try[Seq[Byte]] = Success(Seq({element_name}.toByte(this)))
+  override def SizeInBytes: Int = {size}
+  override def toByteSeq: Try[Seq[Byte]] = Success(BinaryUtils.{type_info["write_func"]}({element_name}.toValue(this)).toSeq)
   def toDisplayString: String = {element_name}.toDisplayString(this)
 }}
 
 object {element_name} {{
   // Wrapper for unknown enum values
-  final case class UnknownValue(value: Byte) extends {element_name}
+  final case class UnknownValue(value: {scala_type}) extends {element_name}
 """
-    # Generate case objects (escape Scala keywords)
-    for value in enum_dict.get("values", []):
+    for value in values:
         escaped_label = escape_scala_keyword(value["label"])
         s += f"  case object {escaped_label} extends {element_name}\n"
 
-    # Generate fromByte
-    s += f"  def fromByte(value: Byte): Option[{element_name}] = value match {{\n"
-    for value in enum_dict.get("values", []):
-        escaped_label = escape_scala_keyword(value["label"])
-        s += f"case {value['value']} => Some({element_name}.{escaped_label})\n"
-    s += "    case _ => None\n"
-    s += "  }\n\n"
-
-    # Generate toByte
-    s += f"  def toByte(value: {element_name}): Byte = value match {{\n"
-    for value in enum_dict.get("values", []):
-        escaped_label = escape_scala_keyword(value["label"])
-        s += f"case {element_name}.{escaped_label} => {value['value']}.toByte\n"
-    s += "    case UnknownValue(v) => v\n"
-    s += "  }\n\n"
-
-    # Generate toDisplayString
-    s += f"  def toDisplayString(value: {element_name}): String = value match {{\n"
-    for value in enum_dict.get("values", []):
-        escaped_label = escape_scala_keyword(value["label"])
-        s += f'case {element_name}.{escaped_label} => "{value["label"]}"\n'
-    s += f'    case UnknownValue(v) => f"${{v & 0xFF}}%02X (len={enum_dict["size"]})"\n'
-    s += "  }\n\n"
-
-    # Generate fromDisplayString
-    s += f"  def fromDisplayString(s: String): Option[{element_name}] = {{\n"
-    for value in enum_dict.get("values", []):
-        escaped_label = escape_scala_keyword(value["label"])
-        s += f'    if (s == "{value["label"]}") return Some({element_name}.{escaped_label})\n'
-    s += (
-        '    // Parse UnknownValue format like "31 (len=1)" or "0x31 (len=1)"\n'
+    s += _render_enum_value_methods(
+        element_name, values, size, scala_type, type_info["to_type"]
     )
-    s += '    val hexPrefixedPattern = """^0x([0-9A-Fa-f]+) \\(len=\\d+\\)$""".r\n'
-    s += (
-        '    val hexNoPrefixPattern = """^([0-9A-Fa-f]+) \\(len=\\d+\\)$""".r\n'
+    s += _render_enum_display_methods(
+        element_name,
+        values,
+        type_info["mask"],
+        type_info["hex_format"],
+        type_info["parse_to_type"],
     )
-    s += "    s match {\n"
-    s += "      case hexPrefixedPattern(hexValue) => Some(UnknownValue(Integer.parseInt(hexValue, 16).toByte))\n"
-    s += "      case hexNoPrefixPattern(hexValue) =>\n"
-    s += "        try { Some(UnknownValue(Integer.parseInt(hexValue, 16).toByte)) }\n"
-    s += "        catch { case _: NumberFormatException => None }\n"
-    s += "      case _ => None\n"
-    s += "    }\n"
-    s += "  }\n\n"
 
-    # Generate fromBytes
-    s += f"  def fromBytes(bytes: Array[Byte]): {element_name} =\n"
-    s += "    fromByte(bytes(0)).getOrElse(UnknownValue(bytes(0)))\n"
+    s += f"  def fromBytes(bytes: Array[Byte]): {element_name} = {{\n"
+    s += f"    val value = {type_info['read_expr']}\n"
+    s += "    fromValue(value).getOrElse(UnknownValue(value))\n"
+    s += "  }\n"
+
+    if size == BYTES_1:
+        s += "\n  // Legacy single-byte methods for backwards compatibility\n"
+        s += f"  def fromByte(value: Byte): Option[{element_name}] = fromValue(value)\n"
+        s += f"  def toByte(value: {element_name}): Byte = toValue(value)\n"
+
     s += "}\n\n"
-
     return s
 
 

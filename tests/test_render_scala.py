@@ -447,10 +447,10 @@ def test_binary_to_scala_to_json_structure() -> None:
     assert "case class sensor_readingJson(" in result
     assert "_type: String" in result
 
-    # Scala -> JSON conversion (uint16 becomes hex string)
-    assert 'f"0x${sensor_id}%04X"' in result  # uint16 hex format
-    assert 'f"0x${humidity}%04X"' in result
-    assert 'f"0x${flags}%04X"' in result
+    # Scala -> JSON conversion (uint16 stays as integer)
+    assert "sensor_id = sensor_id" in result  # uint16 as integer
+    assert "humidity = humidity" in result
+    assert "flags = flags" in result
 
     # Verify serialization method exists in boilerplate
     assert "def serialize(): String" in result
@@ -522,14 +522,14 @@ def test_json_to_scala_to_binary_structure() -> None:
     assert "case class motor_commandJson(" in result
     assert "motor_id: Int" in result  # uint8 -> Int in JSON
     assert "speed: Short" in result  # int16 -> Short
-    assert "position: String" in result  # uint16 -> String (hex)
+    assert "position: Int" in result  # uint16 -> Int in JSON
     assert "enabled: Boolean" in result  # bool -> Boolean
 
     # JSON to Scala conversion expressions
     assert "val j = Serialization.read[motor_commandJson](json)" in result
     assert "motor_id = j.motor_id" in result
     assert "speed = j.speed" in result
-    assert "position = BinaryUtils.parseHexString(j.position).toInt" in result
+    assert "position = j.position" in result  # Direct assignment
     assert "enabled = j.enabled" in result
 
     # Scala -> Binary: toBytes method
@@ -766,7 +766,7 @@ def test_round_trip_with_reserved_fields() -> None:
     # JSON intermediate class SHOULD include reserved fields as hex strings
     assert "case class packet_headerJson(" in result
     assert "version: Int" in result
-    assert "length: String" in result  # uint16 -> hex string
+    assert "length: Int" in result  # uint16 -> Int
     assert "reserved1: String" in result  # reserved as hex string
     assert "reserved2: String" in result  # reserved as hex string
 
@@ -1022,14 +1022,14 @@ def test_full_round_trip_example() -> None:
     assert "def toByteSeq: Try[Seq[Byte]]" in result
 
     # Verify JSON field types
-    assert "packet_id: String" in result  # uint32 -> hex string
+    assert "packet_id: Long" in result  # uint32 -> Long
     assert "sensor_value: Int" in result  # int32 -> Int
-    assert "timestamp: String" in result  # uint64 -> hex string
+    assert "timestamp: Long" in result  # uint64 -> Long
 
-    # Verify conversions
-    assert "BinaryUtils.parseHexString(j.packet_id)" in result
+    # Verify conversions - direct assignment for all uint sizes
+    assert "packet_id = j.packet_id" in result
     assert "sensor_value = j.sensor_value" in result
-    assert "BinaryUtils.parseHexString(j.timestamp)" in result
+    assert "timestamp = j.timestamp" in result
 
 
 # =============================================================================
@@ -1037,13 +1037,11 @@ def test_full_round_trip_example() -> None:
 # =============================================================================
 
 
-def test_scala_to_json_hex_formatting() -> None:
-    """Test Scala to JSON conversion generates proper hex string formatting.
+def test_scala_to_json_uint_formatting() -> None:
+    """Test Scala to JSON conversion for unsigned integers.
 
-    Unsigned integers > 1 byte should be converted to hex strings like:
-    - uint16: f"0x${fieldName}%04X"
-    - uint32: f"0x${fieldName}%08X"
-    - uint64: f"0x${fieldName}%016X"
+    All unsigned integers (regardless of size) are now output as integers,
+    not hex strings, for consistency and easier consumption by downstream systems.
     """
     definitions = {
         "file": {
@@ -1088,17 +1086,11 @@ def test_scala_to_json_hex_formatting() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # 1-byte uint stays as direct field
+    # All uint sizes now stay as integers (no hex formatting)
     assert "small_id = small_id" in result
-
-    # 2-byte uint uses 4-digit hex
-    assert 'f"0x${medium_id}%04X"' in result
-
-    # 4-byte uint uses 8-digit hex
-    assert 'f"0x${large_id}%08X"' in result
-
-    # 8-byte uint uses 16-digit hex
-    assert 'f"0x${huge_id}%016X"' in result
+    assert "medium_id = medium_id" in result
+    assert "large_id = large_id" in result
+    assert "huge_id = huge_id" in result
 
 
 def test_type_discriminator_in_json_class() -> None:
@@ -1140,8 +1132,8 @@ def test_enum_unknown_value_parsing() -> None:
     """Test that enum fromDisplayString can parse UnknownValue format.
 
     The enum should be able to parse strings like:
-    - "49 (len=1)" (decimal format)
-    - "0x31 (len=1)" (hex format)
+    - "0x31" (hex format without len suffix)
+    - "0x1111" (multi-byte hex format)
     """
     definitions = {
         "file": {
@@ -1174,24 +1166,11 @@ def test_enum_unknown_value_parsing() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Should have pattern matching for UnknownValue formats
-    assert (
-        '// Parse UnknownValue format like "31 (len=1)" or "0x31 (len=1)"'
-        in result
-    )
-    assert (
-        'val hexPrefixedPattern = """^0x([0-9A-Fa-f]+) \\(len=\\d+\\)$""".r'
-        in result
-    )
-    assert (
-        'val hexNoPrefixPattern = """^([0-9A-Fa-f]+) \\(len=\\d+\\)$""".r'
-        in result
-    )
-    assert (
-        "case hexPrefixedPattern(hexValue) => "
-        "Some(UnknownValue(Integer.parseInt(hexValue, 16).toByte))" in result
-    )
-    assert "case hexNoPrefixPattern(hexValue) =>" in result
+    # Should have pattern matching for UnknownValue hex format
+    assert '// Parse UnknownValue format like "0x1111" or "0x00"' in result
+    assert 'val hexPattern = """^0x([0-9A-Fa-f]+)$""".r' in result
+    assert "case hexPattern(hexValue) =>" in result
+    assert "java.lang.Long.parseLong(hexValue, 16)" in result
 
 
 def test_nested_structure_json_serialization() -> None:
@@ -1534,18 +1513,15 @@ def test_eight_byte_integer_uses_constant() -> None:
     assert "BinaryUtils.int64LEtoBytes(event.signed_64)" in result
     assert "BinaryUtils.uint64LEtoBytes(event.unsigned_64)" in result
 
-    # JSON types - signed stays Long, unsigned becomes hex string
+    # JSON types - both signed and unsigned use Long
     assert "signed_64: Long" in result  # JSON uses Long for signed
-    assert "unsigned_64: String" in result  # JSON uses hex string for unsigned
-
-    # Hex format for 64-bit unsigned
-    assert '%016X"' in result  # 16 hex digits for 64-bit
+    assert "unsigned_64: Long" in result  # JSON uses Long for unsigned (no hex)
 
 
 def test_enum_unknown_value_hex_parsing() -> None:
     """Test enum fromDisplayString parses UnknownValue hex formats correctly.
 
-    The generated code should handle both "0x31 (len=1)" and "31 (len=1)" formats.
+    The generated code should handle "0x31" format with proper hex parsing.
     """
     definitions = {
         "file": {
@@ -1578,17 +1554,15 @@ def test_enum_unknown_value_hex_parsing() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Pattern variable names should be descriptive (hexValue, not dec)
-    assert "hexPrefixedPattern" in result
-    assert "hexNoPrefixPattern" in result
+    # Should have hexPattern for parsing 0x format
+    assert "hexPattern" in result
     assert "hexValue" in result
 
     # Should NOT have confusing variable name "dec"
     assert "case unknownPattern(dec)" not in result
-    assert "case hexPattern(hex)" not in result
 
-    # Should parse both formats as hex
-    assert "Integer.parseInt(hexValue, 16)" in result
+    # Should parse hex format using Long.parseLong for multi-byte support
+    assert "java.lang.Long.parseLong(hexValue, 16)" in result
 
 
 def test_format_large_int_helper() -> None:
