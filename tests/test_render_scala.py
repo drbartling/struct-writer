@@ -41,8 +41,10 @@ def test_render_empty_file() -> None:
     assert "Longer prose describing what to find in the file" in result
     # Check package and imports are present
     assert "package generated" in result
-    assert "import org.json4s._" in result
+    assert "import com.github.plokhotnyuk.jsoniter_scala.core._" in result
+    assert "import com.github.plokhotnyuk.jsoniter_scala.macros._" in result
     assert "trait ByteSequence" in result
+    assert "trait JsonSerializable" in result
     assert "object BinaryUtils" in result
     # Check footer
     assert "// End of generated code" in result
@@ -97,7 +99,7 @@ def test_render_file_with_enum() -> None:
     assert "case 1 => Some(temperature_units.f)" in result
 
 
-def test_render_file_with_structure() -> None:
+def test_render_file_with_structure_jsoniter() -> None:
     definitions = {
         "file": {
             "brief": "A brief file description",
@@ -132,7 +134,7 @@ def test_render_file_with_structure() -> None:
     assert "final case class cmd_temperature_set(" in result
     assert "temperature: Short," in result
     assert "units: Int," in result
-    assert "extends ByteSequence with CustomJsonSerializer" in result
+    assert "extends ByteSequence with JsonSerializable" in result
     # Check companion object
     assert (
         "object cmd_temperature_set extends ByteSequenceCodec[cmd_temperature_set]"
@@ -238,7 +240,7 @@ def test_render_small_group() -> None:
     assert "case 1 => cmd_reset.decode" in result
     assert "case 2 => cmd_temperature_set.decode" in result
     # Check member structures extend the group
-    assert "extends commands with CustomJsonSerializer" in result
+    assert "extends commands with JsonSerializable" in result
 
 
 def test_render_bitfield() -> None:
@@ -438,22 +440,15 @@ def test_binary_to_scala_to_json_structure() -> None:
     assert "BinaryUtils.bytesToUint16LE(bytes, 4)" in result  # humidity
     assert "BinaryUtils.bytesToUint16LE(bytes, 6)" in result  # flags
 
-    # Scala -> JSON: CustomJsonSerializer trait with intermediate Json class
-    assert "extends ByteSequence with CustomJsonSerializer" in result
-    assert "type ObjectToSerialize = sensor_readingJson" in result
-    assert "protected def getObjectToSerialize(): sensor_readingJson" in result
+    # Scala -> JSON: JsonSerializable trait with jsoniter codec
+    assert "extends ByteSequence with JsonSerializable" in result
+    assert "implicit val codec: JsonValueCodec[sensor_reading]" in result
+    assert "JsonCodecMaker.make" in result
 
-    # JSON class should have _type discriminator
-    assert "case class sensor_readingJson(" in result
-    assert "_type: String" in result
-
-    # Scala -> JSON conversion (uint16 stays as integer)
-    assert "sensor_id = sensor_id" in result  # uint16 as integer
-    assert "humidity = humidity" in result
-    assert "flags = flags" in result
-
-    # Verify serialization method exists in boilerplate
+    # JSON serialization/deserialization methods
     assert "def serialize(): String" in result
+    assert "def serializeToBytes(): Array[Byte]" in result
+    assert "def deserialize(json: String): sensor_reading" in result
 
 
 def test_json_to_scala_to_binary_structure() -> None:
@@ -461,8 +456,7 @@ def test_json_to_scala_to_binary_structure() -> None:
 
     The generated Scala code should have:
     - deserialize(json): Deserializes JSON string to Scala case class
-    - fromJson(): Internal method for JSON parsing
-    - *Json intermediate case class for JSON field types
+    - JsonValueCodec for jsoniter-scala serialization
     - toBytes(event): Serializes Scala case class to binary
     """
     definitions = {
@@ -508,29 +502,21 @@ def test_json_to_scala_to_binary_structure() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # JSON -> Scala: CustomJsonDeserializer and fromJson
+    # JSON -> Scala: jsoniter-scala codec
     assert (
-        "object motor_command extends ByteSequenceCodec[motor_command] "
-        "with CustomJsonDeserializer[motor_command]" in result
+        "object motor_command extends ByteSequenceCodec[motor_command]"
+        in result
     )
-    assert (
-        "override protected def fromJson(json: String)"
-        "(implicit formats: Formats): motor_command" in result
-    )
+    assert "implicit val codec: JsonValueCodec[motor_command]" in result
+    assert "JsonCodecMaker.make" in result
+    assert "def deserialize(json: String): motor_command" in result
+    assert "readFromString(json)(codec)" in result
 
-    # JSON intermediate case class with correct types
-    assert "case class motor_commandJson(" in result
-    assert "motor_id: Int" in result  # uint8 -> Int in JSON
+    # Case class fields with correct types
+    assert "motor_id: Int" in result  # uint8 -> Int
     assert "speed: Short" in result  # int16 -> Short
-    assert "position: Int" in result  # uint16 -> Int in JSON
+    assert "position: Int" in result  # uint16 -> Int
     assert "enabled: Boolean" in result  # bool -> Boolean
-
-    # JSON to Scala conversion expressions
-    assert "val j = Serialization.read[motor_commandJson](json)" in result
-    assert "motor_id = j.motor_id" in result
-    assert "speed = j.speed" in result
-    assert "position = j.position" in result  # Direct assignment
-    assert "enabled = j.enabled" in result
 
     # Scala -> Binary: toBytes method
     assert "def toBytes(event: motor_command): Seq[Byte]" in result
@@ -633,15 +619,13 @@ def test_round_trip_with_enum_field() -> None:
     assert "def toDisplayString(value: operating_mode): String" in result
     assert "def fromDisplayString(s: String): Option[operating_mode]" in result
 
-    # JSON intermediate class should use String for enum
-    assert "case class device_statusJson(" in result
-    assert "mode: String" in result  # Enum as String in JSON
+    # Enum field should use the enum type
+    assert "mode: operating_mode" in result  # Enum type
+    # Enum should have its own codec for string serialization
+    assert "implicit val codec: JsonValueCodec[operating_mode]" in result
 
-    # JSON deserialization should parse enum from display string
-    assert (
-        "mode = operating_mode.fromDisplayString(j.mode)"
-        ".getOrElse(operating_mode.UnknownValue(0))" in result
-    )
+    # Jsoniter codec handles enum deserialization via fromDisplayString
+    # (The codec is generated in the enum companion object)
 
 
 def test_round_trip_with_nested_structure() -> None:
@@ -697,15 +681,11 @@ def test_round_trip_with_nested_structure() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # JSON intermediate class should use JValue for nested structure
-    assert "case class location_reportJson(" in result
-    assert "position: JValue" in result
-
-    # JSON deserialization should call deserialize on nested structure
-    assert (
-        "position = gps_coordinates.deserialize(compact(render(j.position)))"
-        in result
-    )
+    # Nested structure should use the actual type (jsoniter handles it)
+    assert "position: gps_coordinates" in result
+    # Jsoniter codec for nested structure
+    assert "implicit val codec: JsonValueCodec[gps_coordinates]" in result
+    # Jsoniter handles nested structure deserialization automatically
 
     # Binary round-trip for nested structure
     assert "gps_coordinates.fromBytes(bytes.slice(4, 12))" in result
@@ -763,26 +743,15 @@ def test_round_trip_with_reserved_fields() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # JSON intermediate class SHOULD include reserved fields as hex strings
-    assert "case class packet_headerJson(" in result
+    # Reserved fields are handled by jsoniter
+    assert "implicit val codec: JsonValueCodec[packet_header]" in result
     assert "version: Int" in result
     assert "length: Int" in result  # uint16 -> Int
-    assert "reserved1: String" in result  # reserved as hex string
-    assert "reserved2: String" in result  # reserved as hex string
+    # Reserved fields are stored as Array[Byte] in Scala
+    assert "reserved1: Array[Byte]" in result
+    assert "reserved2: Array[Byte]" in result
 
-    # Scala -> JSON: Reserved fields converted to hex string
-    assert 'reserved1.map(b => f"${b & 0xFF}%02X").mkString' in result
-    assert 'reserved2.map(b => f"${b & 0xFF}%02X").mkString' in result
-
-    # JSON -> Scala: Reserved fields parsed from hex string
-    assert (
-        "reserved1 = j.reserved1.grouped(2).map(s => Integer.parseInt(s, 16).toByte).toArray"
-        in result
-    )
-    assert (
-        "reserved2 = j.reserved2.grouped(2).map(s => Integer.parseInt(s, 16).toByte).toArray"
-        in result
-    )
+    # Jsoniter codec handles serialization automatically
 
 
 def test_round_trip_bitfield() -> None:
@@ -834,25 +803,22 @@ def test_round_trip_bitfield() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Bitfield should have CustomJsonDeserializer
+    # Bitfield should have ByteSequenceCodec
     assert (
-        "object status_flags extends ByteSequenceCodec[status_flags] "
-        "with CustomJsonDeserializer[status_flags]" in result
+        "object status_flags extends ByteSequenceCodec[status_flags]" in result
     )
 
-    # JSON intermediate class with correct types
-    assert "case class status_flagsJson(" in result
+    # Jsoniter codec for bitfield
+    assert "implicit val codec: JsonValueCodec[status_flags]" in result
+    assert "JsonCodecMaker.make" in result
     assert "power_on: Boolean" in result
     assert "connected: Boolean" in result
     assert "error_code: Int" in result
     assert "mode: Int" in result
 
-    # JSON deserialization
-    assert "val j = Serialization.read[status_flagsJson](json)" in result
-    assert "power_on = j.power_on" in result
-    assert "connected = j.connected" in result
-    assert "error_code = j.error_code" in result
-    assert "mode = j.mode" in result
+    # JSON deserialization uses jsoniter
+    assert "def deserialize(json: String): status_flags" in result
+    assert "readFromString(json)(codec)" in result
 
 
 def test_round_trip_group() -> None:
@@ -920,41 +886,18 @@ def test_round_trip_group() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Group should have JSON deserialization dispatcher
-    assert "def decodeFromJson(json: String): messages" in result
-    assert "def decodeFromJValue(jValue: JValue): messages" in result
+    # Group members should have jsoniter codecs
+    assert "implicit val codec: JsonValueCodec[msg_ping]" in result
+    assert "implicit val codec: JsonValueCodec[msg_pong]" in result
 
-    # Group decoder uses _type discriminator field
-    assert 'val typeName = (jValue \\ "_type").extractOpt[String]' in result
-    assert "typeName match {" in result
-    assert 'case Some("msg_ping") => msg_ping.deserialize(jsonStr)' in result
-    assert 'case Some("msg_pong") => msg_pong.deserialize(jsonStr)' in result
+    # Member structures should have ByteSequenceCodec
+    assert "object msg_ping extends ByteSequenceCodec[msg_ping]" in result
+    assert "object msg_pong extends ByteSequenceCodec[msg_pong]" in result
 
-    # RawData fallback handling
-    assert 'case Some("messages_RawData")' in result
-    assert (
-        'case Some(unknown) => throw new Exception(s"Unknown type: $unknown")'
-        in result
-    )
-    assert (
-        'case None => throw new Exception("Missing _type field in JSON")'
-        in result
-    )
-
-    # Member structures should have CustomJsonDeserializer
-    assert (
-        "object msg_ping extends ByteSequenceCodec[msg_ping] "
-        "with CustomJsonDeserializer[msg_ping]" in result
-    )
-    assert (
-        "object msg_pong extends ByteSequenceCodec[msg_pong] "
-        "with CustomJsonDeserializer[msg_pong]" in result
-    )
-
-    # JSON intermediate classes for members with _type discriminator
-    assert "case class msg_pingJson(" in result
-    assert "case class msg_pongJson(" in result
-    assert "_type: String" in result  # Type discriminator in JSON class
+    # Members have serialize and deserialize methods
+    assert "def deserialize(json: String): msg_ping" in result
+    assert "def deserialize(json: String): msg_pong" in result
+    assert "def serialize(): String" in result
 
 
 def test_full_round_trip_example() -> None:
@@ -1007,29 +950,25 @@ def test_full_round_trip_example() -> None:
     assert "def fromBytes(bytes: Array[Byte]): telemetry_packet" in result
 
     # ===== Scala -> JSON =====
-    assert "extends ByteSequence with CustomJsonSerializer" in result
+    assert "extends ByteSequence with JsonSerializable" in result
     assert "def serialize(): String" in result
-    assert "def serializeToJValue(): JValue" in result
+    assert "def serializeToBytes(): Array[Byte]" in result
 
-    # ===== JSON -> Scala =====
-    assert "with CustomJsonDeserializer[telemetry_packet]" in result
-    assert "def deserialize(json: String): " in result
-    assert "override protected def fromJson(json: String)" in result
-    assert "case class telemetry_packetJson(" in result
+    # ===== JSON -> Scala (jsoniter) =====
+    assert "def deserialize(json: String): telemetry_packet" in result
+    assert "implicit val codec: JsonValueCodec[telemetry_packet]" in result
+    assert "JsonCodecMaker.make" in result
 
     # ===== Scala -> Binary =====
     assert "def toBytes(event: telemetry_packet): Seq[Byte]" in result
     assert "def toByteSeq: Try[Seq[Byte]]" in result
 
-    # Verify JSON field types
+    # Verify case class field types
     assert "packet_id: Long" in result  # uint32 -> Long
     assert "sensor_value: Int" in result  # int32 -> Int
     assert "timestamp: Long" in result  # uint64 -> Long
 
-    # Verify conversions - direct assignment for all uint sizes
-    assert "packet_id = j.packet_id" in result
-    assert "sensor_value = j.sensor_value" in result
-    assert "timestamp = j.timestamp" in result
+    # Jsoniter handles JSON conversion automatically
 
 
 # =============================================================================
@@ -1086,11 +1025,14 @@ def test_scala_to_json_uint_formatting() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # All uint sizes now stay as integers (no hex formatting)
-    assert "small_id = small_id" in result
-    assert "medium_id = medium_id" in result
-    assert "large_id = large_id" in result
-    assert "huge_id = huge_id" in result
+    # All uint sizes are stored directly in case class
+    assert "small_id: Int" in result  # uint8 -> Int
+    assert "medium_id: Int" in result  # uint16 -> Int
+    assert "large_id: Long" in result  # uint32 -> Long
+    assert "huge_id: Long" in result  # uint64 -> Long
+
+    # Jsoniter codec handles serialization automatically
+    assert "implicit val codec: JsonValueCodec[data_packet]" in result
 
 
 def test_type_discriminator_in_json_class() -> None:
@@ -1120,12 +1062,11 @@ def test_type_discriminator_in_json_class() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # JSON class should have _type as first field
-    assert "case class simple_structJson(" in result
-    assert "_type: String" in result
+    # Should have jsoniter codec
+    assert "implicit val codec: JsonValueCodec[simple_struct]" in result
+    assert "def deserialize(json: String): simple_struct" in result
 
-    # getObjectToSerialize should set _type to structure name
-    assert '_type = "simple_struct"' in result
+    # Jsoniter handles serialization directly, no _type in case class
 
 
 def test_enum_unknown_value_parsing() -> None:
@@ -1166,15 +1107,15 @@ def test_enum_unknown_value_parsing() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Should have pattern matching for UnknownValue hex format
-    assert '// Parse UnknownValue format like "0x1111" or "0x00"' in result
-    assert 'val hexPattern = """^0x([0-9A-Fa-f]+)$""".r' in result
-    assert "case hexPattern(hexValue) =>" in result
-    assert "java.lang.Long.parseLong(hexValue, 16)" in result
+    # Should have fromDisplayString for parsing
+    assert "def fromDisplayString(s: String): Option[status_code]" in result
+
+    # Should have jsoniter codec for serialization
+    assert "implicit val codec: JsonValueCodec[status_code]" in result
 
 
 def test_nested_structure_json_serialization() -> None:
-    """Test that nested structures use serializeToJValue() for JSON."""
+    """Test that nested structures use jsoniter for JSON."""
     definitions = {
         "file": {
             "brief": "Nested struct JSON test",
@@ -1220,11 +1161,11 @@ def test_nested_structure_json_serialization() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Scala -> JSON: nested structure uses serializeToJValue()
-    assert "inner = inner.serializeToJValue()" in result
+    # Jsoniter handles nested structures directly
+    assert "implicit val codec: JsonValueCodec[outer_data]" in result
 
-    # JSON class uses JValue for nested structure
-    assert "inner: JValue" in result
+    # Nested structure uses actual type (jsoniter handles serialization)
+    assert "inner: inner_data" in result
 
 
 def test_enum_field_json_conversion() -> None:
@@ -1275,11 +1216,11 @@ def test_enum_field_json_conversion() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Scala -> JSON: enum uses toDisplayString
-    assert "color = color.toDisplayString" in result
+    # Enum has its own codec which handles string serialization
+    assert "implicit val codec: JsonValueCodec[color_enum]" in result
 
-    # JSON class uses String for enum
-    assert "color: String" in result
+    # Enum field uses the enum type (jsoniter handles conversion)
+    assert "color: color_enum" in result
 
 
 def test_group_raw_data_json_class() -> None:
@@ -1321,15 +1262,9 @@ def test_group_raw_data_json_class() -> None:
     assert "tag: Int" in result
     assert "rawBytes: Array[Byte]" in result
 
-    # RawData JSON class with _type
-    assert "case class events_RawDataJson(" in result
-    assert "_type: String" in result
-
-    # RawData serialization includes _type
-    assert 'events_RawDataJson("events_RawData", tag' in result
-
-    # RawData rawBytes serialized as hex string
-    assert 'rawBytes.map(b => f"${b & 0xFF}%02X").mkString' in result
+    # RawData has JsonSerializable trait and codec
+    assert "extends events with JsonSerializable" in result
+    assert "implicit val codec: JsonValueCodec[events_RawData]" in result
 
 
 def test_bitfield_json_round_trip_types() -> None:
@@ -1374,22 +1309,18 @@ def test_bitfield_json_round_trip_types() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # JSON intermediate class with _type discriminator
-    assert "case class flagsJson(" in result
-    assert "_type: String" in result  # Type discriminator
+    # Bitfield case class with correct types
     assert "enabled: Boolean" in result  # 1-bit bool -> Boolean
     assert "level: Int" in result  # multi-bit uint -> Int
     assert "active: Boolean" in result  # 1-bit bool -> Boolean
 
-    # Bitfield has CustomJsonDeserializer
-    assert "with CustomJsonDeserializer[flags]" in result
+    # Bitfield has jsoniter codec
+    assert "implicit val codec: JsonValueCodec[flags]" in result
+    assert "JsonCodecMaker.make" in result
 
-    # getObjectToSerialize creates flagsJson with _type
-    assert "type ObjectToSerialize = flagsJson" in result
-    assert (
-        "protected def getObjectToSerialize(): flagsJson = flagsJson(" in result
-    )
-    assert '_type = "flags"' in result
+    # Has serialize/deserialize methods
+    assert "def serialize(): String" in result
+    assert "def deserialize(json: String): flags" in result
 
 
 # =============================================================================
@@ -1519,9 +1450,10 @@ def test_eight_byte_integer_uses_constant() -> None:
 
 
 def test_enum_unknown_value_hex_parsing() -> None:
-    """Test enum fromDisplayString parses UnknownValue hex formats correctly.
+    """Test enum fromDisplayString and jsoniter codec.
 
-    The generated code should handle "0x31" format with proper hex parsing.
+    The generated code should have fromDisplayString for parsing known values
+    and a jsoniter codec that handles JSON serialization/deserialization.
     """
     definitions = {
         "file": {
@@ -1554,15 +1486,15 @@ def test_enum_unknown_value_hex_parsing() -> None:
         definitions, template, Path("my_file.scala")
     )
 
-    # Should have hexPattern for parsing 0x format
-    assert "hexPattern" in result
-    assert "hexValue" in result
+    # Should have fromDisplayString for parsing known labels
+    assert "def fromDisplayString(s: String): Option[command_type]" in result
+    assert 'if (s == "start") return Some(command_type.start)' in result
+    assert 'if (s == "stop") return Some(command_type.stop)' in result
 
-    # Should NOT have confusing variable name "dec"
-    assert "case unknownPattern(dec)" not in result
-
-    # Should parse hex format using Long.parseLong for multi-byte support
-    assert "java.lang.Long.parseLong(hexValue, 16)" in result
+    # Should have jsoniter codec that uses toDisplayString/fromDisplayString
+    assert "implicit val codec: JsonValueCodec[command_type]" in result
+    assert "out.writeVal(toDisplayString(x))" in result
+    assert "fromDisplayString(s).getOrElse(UnknownValue(0))" in result
 
 
 def test_format_large_int_helper() -> None:
