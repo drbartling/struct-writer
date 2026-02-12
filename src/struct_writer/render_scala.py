@@ -368,29 +368,17 @@ object {element_name} {{
     return s
 
 
-def render_structure(
+def _render_structure_case_class(
     structure_name: str,
+    structure_dict: dict[str, Any],
     definitions: dict[str, DefinedType],
-    templates: dict[str, Any],
-    extends_trait: str | None = None,
+    base_trait: str,
 ) -> str:
-    """Render a Scala structure as a case class with codec and jsoniter-scala JSON support."""
-    structure = definitions[structure_name].as_structure()
-    structure_dict = structure.to_dict()
-
-    # Render any member types first
-    s = ""
-    for member in structure.members:
-        if member.type in definitions and member.type not in rendered:
-            s += render_definition(member.type, definitions, templates)
-
-    # Build case class
-    base_trait = extends_trait if extends_trait else "ByteSequence"
-    s += f"// {structure_dict['display_name']}\n"
+    """Render the case class definition for a structure."""
+    s = f"// {structure_dict['display_name']}\n"
     s += f"// {structure_dict['description']}\n"
     s += f"final case class {structure_name}(\n"
 
-    # Generate fields
     member_lines = []
     for member in structure_dict.get("members", []):
         if member["type"] == "reserved":
@@ -409,27 +397,31 @@ def render_structure(
     s += "\n".join(member_lines)
     s += f"\n) extends {base_trait} with JsonSerializable {{\n"
     s += f"  override def SizeInBytes: Int = {structure_name}.SizeInBytes\n"
-    s += f"  override def toByteSeq: Try[Seq[Byte]] = {structure_name}.encode(this)\n"
-    s += "\n"
+    s += f"  override def toByteSeq: Try[Seq[Byte]] = {structure_name}.encode(this)\n\n"
     s += "  // JSON serialization using jsoniter-scala\n"
     s += f"  def serialize(): String = writeToString(this)({structure_name}.codec)\n"
     s += f"  def serializeToBytes(): Array[Byte] = writeToArray(this)({structure_name}.codec)\n"
     s += "}\n\n"
+    return s
 
-    # Generate companion object with jsoniter codec
-    s += f"object {structure_name} extends ByteSequenceCodec[{structure_name}] {{\n\n"
+
+def _render_structure_companion(
+    structure_name: str,
+    structure_dict: dict[str, Any],
+    definitions: dict[str, DefinedType],
+) -> str:
+    """Render the companion object for a structure."""
+    s = f"object {structure_name} extends ByteSequenceCodec[{structure_name}] {{\n\n"
     s += f"  final val SizeInBytes = {structure_dict['size']}\n\n"
     s += "  // jsoniter-scala codec - derived at compile time\n"
     s += f"  implicit val codec: JsonValueCodec[{structure_name}] = JsonCodecMaker.make\n\n"
     s += "  // Binary decode/encode\n"
     s += f"  override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[{structure_name}] = Try {{\n"
-    s += "    fromBytes(bytes)\n"
-    s += "  }\n\n"
+    s += "    fromBytes(bytes)\n  }\n\n"
     s += f"  override def encode(event: {structure_name}): Try[Seq[Byte]] = Try {{\n"
-    s += "    toBytes(event)\n"
-    s += "  }\n\n"
+    s += "    toBytes(event)\n  }\n\n"
 
-    # Generate fromBytes (binary deserialization)
+    # Generate fromBytes
     s += f"  def fromBytes(bytes: Array[Byte]): {structure_name} = {{\n"
     s += f"    {structure_name}(\n"
     offset = 0
@@ -437,24 +429,45 @@ def render_structure(
         decode_expr = decode_call_for_member(member, offset, definitions)
         s += f"      {member['name']} = {decode_expr},\n"
         offset += member["size"]
-    s += "    )\n"
-    s += "  }\n\n"
+    s += "    )\n  }\n\n"
 
-    # Generate toBytes (binary serialization)
+    # Generate toBytes
     s += f"  def toBytes(event: {structure_name}): Seq[Byte] = {{\n"
     s += "    val bytes = mutable.ArrayBuffer.empty[Byte]\n"
     for member in structure_dict.get("members", []):
-        encode_expr = encode_call_for_member(member, definitions)
-        s += f"    {encode_expr}\n"
-    s += "    bytes.toSeq\n"
-    s += "  }\n\n"
+        s += f"    {encode_call_for_member(member, definitions)}\n"
+    s += "    bytes.toSeq\n  }\n\n"
 
-    # JSON deserialization methods
     s += "  // JSON deserialization\n"
     s += f"  def deserialize(json: String): {structure_name} = readFromString(json)(codec)\n"
     s += f"  def deserialize(bytes: Array[Byte]): {structure_name} = readFromArray(bytes)(codec)\n"
     s += "}\n\n"
+    return s
 
+
+def render_structure(
+    structure_name: str,
+    definitions: dict[str, DefinedType],
+    templates: dict[str, Any],
+    extends_trait: str | None = None,
+) -> str:
+    """Render a Scala structure as a case class with codec and jsoniter-scala JSON support."""
+    structure = definitions[structure_name].as_structure()
+    structure_dict = structure.to_dict()
+
+    # Render any member types first
+    s = ""
+    for member in structure.members:
+        if member.type in definitions and member.type not in rendered:
+            s += render_definition(member.type, definitions, templates)
+
+    base_trait = extends_trait if extends_trait else "ByteSequence"
+    s += _render_structure_case_class(
+        structure_name, structure_dict, definitions, base_trait
+    )
+    s += _render_structure_companion(
+        structure_name, structure_dict, definitions
+    )
     return s
 
 
