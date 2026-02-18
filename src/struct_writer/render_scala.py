@@ -21,6 +21,8 @@ rendered: set[str] = {"file"}
 # Constants for Scala integer limits
 INT_MAX_VALUE = 2147483647
 INT_MIN_VALUE = -2147483648
+UINT32_MAX = 0xFFFFFFFF  # 4294967295
+UINT32_OVERFLOW = 0x100000000  # 2^32, for unsigned to signed conversion
 
 # Constants for path parsing
 SRC_MAIN_SCALA_PATH = ("src", "main", "scala")
@@ -84,8 +86,24 @@ def escape_scala_keyword(name: str) -> str:
     return f"`{name}`" if name in SCALA_KEYWORDS else name
 
 
-def format_large_int(value: int) -> str:
-    """Format integer literal, adding L suffix for values > Int.MaxValue."""
+def format_large_int(value: int, *, for_pattern_match: bool = False) -> str:
+    """Format integer literal for Scala.
+
+    Args:
+        value: The integer value to format
+        for_pattern_match: If True, format for use in pattern matching against Int.
+                          Values >= 0x80000000 are converted to signed Int representation
+                          to match correctly when the tag variable is Int type.
+
+    For pattern matching on Int variables:
+        - 0x80000000 (2147483648) becomes -2147483648
+        - 0x80000001 (2147483649) becomes -2147483647
+        - etc.
+    """
+    if for_pattern_match and value > INT_MAX_VALUE and value <= UINT32_MAX:
+        # Convert unsigned 32-bit to signed 32-bit for Int pattern matching
+        signed_value = value - UINT32_OVERFLOW
+        return str(signed_value)
     if value > INT_MAX_VALUE or value < INT_MIN_VALUE:
         return f"{value}L"
     return str(value)
@@ -613,7 +631,11 @@ def _render_group_decoder(group_name: str, group: Group) -> str:
     s += "    tag match {\n"
 
     for member in sorted(group.members, key=lambda m: m.value):
-        tag_value = format_large_int(member.value)
+        # For 4-byte tags, use signed Int representation for pattern matching
+        # since tag is read as .toInt which converts unsigned to signed
+        tag_value = format_large_int(
+            member.value, for_pattern_match=(group.size == BYTES_4)
+        )
         s += f"case {tag_value} => {member.type}.decode(structureBytes, streamPositionHead).asInstanceOf[Try[{group_name}]]\n"
 
     s += f"      case _ => Success({group_name}_RawData(tag, structureBytes))\n"
