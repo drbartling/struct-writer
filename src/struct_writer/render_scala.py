@@ -169,6 +169,18 @@ def extract_package_from_path(output_file: Path) -> str:
     return "generated"
 
 
+def _build_structure_to_groups(
+    definitions: dict[str, DefinedType],
+) -> dict[str, list[str]]:
+    """Build a mapping of structure_name -> list of group names it belongs to."""
+    result: dict[str, list[str]] = {}
+    for name, defn in definitions.items():
+        if isinstance(defn, Group):
+            for member in defn.as_group().members:
+                result.setdefault(member.type, []).append(name)
+    return result
+
+
 def render_definitions(
     definitions: TypeDefinitions,
     templates: dict[str, Any],
@@ -177,16 +189,28 @@ def render_definitions(
     s = ""
     element_names = sorted(definitions.definitions.keys())
 
+    structure_to_groups = _build_structure_to_groups(definitions.definitions)
+
     # Render groups first (they define the sealed traits that structures extend)
     group_names = {
         k for k, v in definitions.definitions.items() if isinstance(v, Group)
     }
     for element_name in group_names:
-        s += render_definition(element_name, definitions.definitions, templates)
+        s += render_definition(
+            element_name,
+            definitions.definitions,
+            templates,
+            structure_to_groups,
+        )
 
     # Render remaining definitions
     for element_name in element_names:
-        s += render_definition(element_name, definitions.definitions, templates)
+        s += render_definition(
+            element_name,
+            definitions.definitions,
+            templates,
+            structure_to_groups,
+        )
     return s
 
 
@@ -194,6 +218,7 @@ def render_definition(
     element_name: str,
     definitions: dict[str, DefinedType],
     templates: dict[str, Any],
+    structure_to_groups: dict[str, list[str]] | None = None,
 ) -> str:
     """Render a single definition based on its type."""
     if element_name in rendered:
@@ -206,7 +231,9 @@ def render_definition(
     elif isinstance(definition, Enumeration):
         s += render_enum(element_name, definitions, templates)
     elif isinstance(definition, Group):
-        s += render_group(element_name, definitions, templates)
+        s += render_group(
+            element_name, definitions, templates, structure_to_groups
+        )
     elif isinstance(definition, BitField):
         s += render_bit_field(element_name, definitions, templates)
 
@@ -613,8 +640,53 @@ def _render_raw_data_class(
     return s
 
 
-def _render_group_decoder(group_name: str, group: Group) -> str:
-    """Render the decode object for a group."""
+def _find_nested_group_fields(
+    member_type: str, definitions: dict[str, DefinedType]
+) -> list[tuple[str, str]]:
+    """Find fields in a structure whose type is a Group."""
+    if member_type not in definitions:
+        return []
+    member_def = definitions[member_type]
+    if not isinstance(member_def, Structure):
+        return []
+    return [
+        (field.name, field.type)
+        for field in member_def.as_structure().members
+        if field.type in definitions
+        and isinstance(definitions[field.type], Group)
+    ]
+
+
+def _render_variant_path(
+    group_name: str,
+    sorted_members: list[Any],
+    member_nested_fields: dict[str, list[tuple[str, str]]],
+) -> str:
+    """Render the variantPath method for a group."""
+    s = f"  def variantPath(value: {group_name}): String = value match {{\n"
+    for member in sorted_members:
+        nested = member_nested_fields[member.type]
+        if nested:
+            parts = [f'"{member.name}"']
+            parts.extend(
+                f"{field_type}.variantPath(v.{field_name})"
+                for field_name, field_type in nested
+            )
+            concatenation = ' + "_" + '.join(parts)
+            s += f"    case v: {member.type} => {concatenation}\n"
+        else:
+            s += f'    case _: {member.type} => "{member.name}"\n'
+    s += f'    case _: {group_name}_RawData => "unknown"\n'
+    s += "  }\n"
+    return s
+
+
+def _render_group_decoder(
+    group_name: str,
+    group: Group,
+    definitions: dict[str, DefinedType],
+) -> str:
+    """Render the decode object for a group with variantName and variantPath."""
     tag_readers = {
         BYTES_1: "    val tag = bytes(0) & 0xFF\n",
         BYTES_2: "    val tag = BinaryUtils.bytesToUint16LE(bytes, 0)\n",
@@ -630,9 +702,8 @@ def _render_group_decoder(group_name: str, group: Group) -> str:
     s += f"    val structureBytes = bytes.drop({group.size})\n"
     s += "    tag match {\n"
 
-    for member in sorted(group.members, key=lambda m: m.value):
-        # For 4-byte tags, use signed Int representation for pattern matching
-        # since tag is read as .toInt which converts unsigned to signed
+    sorted_members = sorted(group.members, key=lambda m: m.value)
+    for member in sorted_members:
         tag_value = format_large_int(
             member.value, for_pattern_match=(group.size == BYTES_4)
         )
@@ -642,7 +713,29 @@ def _render_group_decoder(group_name: str, group: Group) -> str:
     s += "    }\n"
     s += "  }\n\n"
     s += f"  def fromBytes(bytes: Array[Byte]): {group_name} =\n"
-    s += "    decode(bytes, 0L).get\n"
+    s += "    decode(bytes, 0L).get\n\n"
+
+    # Generate variantName
+    s += f"  def variantName(value: {group_name}): String = value match {{\n"
+    for member in sorted_members:
+        s += f'    case _: {member.type} => "{member.name}"\n'
+    s += f'    case _: {group_name}_RawData => "unknown"\n'
+    s += "  }\n\n"
+
+    # Detect nested groups and generate variantPath
+    member_nested_fields = {
+        m.type: _find_nested_group_fields(m.type, definitions)
+        for m in sorted_members
+    }
+    any_nested = any(member_nested_fields.values())
+
+    if any_nested:
+        s += _render_variant_path(
+            group_name, sorted_members, member_nested_fields
+        )
+    else:
+        s += f"  def variantPath(value: {group_name}): String = variantName(value)\n"
+
     s += "}\n\n"
     return s
 
@@ -651,6 +744,7 @@ def render_group(
     group_name: str,
     definitions: dict[str, DefinedType],
     templates: dict[str, Any],
+    structure_to_groups: dict[str, list[str]] | None = None,
 ) -> str:
     """Render a Scala group as a sealed trait with decode dispatcher."""
     group = definitions[group_name].as_group()
@@ -666,12 +760,16 @@ def render_group(
     s += _render_raw_data_class(
         group_name, group.size, common_fields, definitions
     )
-    s += _render_group_decoder(group_name, group)
+    s += _render_group_decoder(group_name, group, definitions)
 
     for member in group.members:
         if member.type not in rendered:
             s += render_structure_with_group(
-                member.type, definitions, templates, group_name
+                member.type,
+                definitions,
+                templates,
+                group_name,
+                structure_to_groups,
             )
 
     return s
@@ -682,6 +780,7 @@ def render_structure_with_group(  # noqa: PLR0915
     definitions: dict[str, DefinedType],
     templates: dict[str, Any],
     group_name: str,
+    structure_to_groups: dict[str, list[str]] | None = None,
 ) -> str:
     """Render a structure that extends a group trait with jsoniter-scala JSON support."""
     if structure_name in rendered:
@@ -695,9 +794,19 @@ def render_structure_with_group(  # noqa: PLR0915
     s = ""
     for member in structure.members:
         if member.type in definitions and member.type not in rendered:
-            s += render_definition(member.type, definitions, templates)
+            s += render_definition(
+                member.type, definitions, templates, structure_to_groups
+            )
 
-    # Build case class extending the group trait
+    # Determine all groups this structure belongs to
+    all_groups = (
+        structure_to_groups.get(structure_name, [group_name])
+        if structure_to_groups
+        else [group_name]
+    )
+    extends_clause = " with ".join(all_groups)
+
+    # Build case class extending the group trait(s)
     s += f"// {structure_dict['display_name']}\n"
     s += f"// {structure_dict['description']}\n"
     s += f"final case class {structure_name}(\n"
@@ -719,7 +828,7 @@ def render_structure_with_group(  # noqa: PLR0915
             member_lines.append(f"  {member['name']}: {scala_type},{comment}")
 
     s += "\n".join(member_lines)
-    s += f"\n) extends {group_name} with JsonSerializable {{\n"
+    s += f"\n) extends {extends_clause} with JsonSerializable {{\n"
     s += f"  override def SizeInBytes: Int = {structure_name}.SizeInBytes\n"
     s += f"  override def toByteSeq: Try[Seq[Byte]] = {structure_name}.encode(this)\n"
     s += "\n"

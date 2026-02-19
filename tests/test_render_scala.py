@@ -1534,3 +1534,266 @@ def test_escape_scala_keyword_helper() -> None:
     assert render_scala.escape_scala_keyword("temperature") == "temperature"
     assert render_scala.escape_scala_keyword("data") == "data"
     assert render_scala.escape_scala_keyword("value123") == "value123"
+
+
+# =============================================================================
+# Tests for variantName, variantPath, and multi-group membership
+# =============================================================================
+
+
+def test_render_group_variant_name() -> None:
+    """Test that variantName is generated on group companion objects."""
+    definitions = {
+        "file": {
+            "brief": "variantName test",
+            "description": "Testing variantName generation",
+        },
+        "commands": {
+            "description": "Debug commands",
+            "display_name": "Commands",
+            "type": "group",
+            "size": 2,
+        },
+        "cmd_reset": {
+            "description": "Reset command",
+            "display_name": "Reset",
+            "type": "structure",
+            "size": 0,
+            "groups": {"commands": {"value": 1, "name": "reset"}},
+        },
+        "cmd_temperature_set": {
+            "description": "Set temperature",
+            "display_name": "Set Temperature",
+            "type": "structure",
+            "size": 3,
+            "members": [
+                {
+                    "name": "temp",
+                    "size": 2,
+                    "type": "int",
+                    "description": "Temp",
+                },
+                {
+                    "name": "units",
+                    "size": 1,
+                    "type": "uint",
+                    "description": "Units",
+                },
+            ],
+            "groups": {"commands": {"value": 2, "name": "temperature_set"}},
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("my_file.scala")
+    )
+    assert "def variantName(value: commands): String = value match {" in result
+    assert 'case _: cmd_reset => "reset"' in result
+    assert 'case _: cmd_temperature_set => "temperature_set"' in result
+    assert 'case _: commands_RawData => "unknown"' in result
+
+
+def test_render_group_variant_path_no_nesting() -> None:
+    """Test that variantPath delegates to variantName when no nested groups."""
+    definitions = {
+        "file": {
+            "brief": "variantPath test",
+            "description": "Testing variantPath with no nesting",
+        },
+        "events": {
+            "description": "Events",
+            "display_name": "Events",
+            "type": "group",
+            "size": 1,
+        },
+        "evt_start": {
+            "description": "Start event",
+            "display_name": "Start",
+            "type": "structure",
+            "size": 4,
+            "members": [
+                {
+                    "name": "ts",
+                    "size": 4,
+                    "type": "uint",
+                    "description": "Time",
+                },
+            ],
+            "groups": {"events": {"value": 1, "name": "start"}},
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("my_file.scala")
+    )
+    assert (
+        "def variantPath(value: events): String = variantName(value)" in result
+    )
+
+
+def test_render_group_variant_path_with_nesting() -> None:
+    """Test that variantPath generates recursive concatenation for nested groups."""
+    definitions = {
+        "file": {
+            "brief": "Nested group test",
+            "description": "Testing variantPath with nested groups",
+        },
+        "inner_group": {
+            "description": "Inner group",
+            "display_name": "Inner Group",
+            "type": "group",
+            "size": 1,
+        },
+        "inner_variant_a": {
+            "description": "Inner variant A",
+            "display_name": "Inner A",
+            "type": "structure",
+            "size": 2,
+            "members": [
+                {
+                    "name": "val1",
+                    "size": 2,
+                    "type": "uint",
+                    "description": "Value",
+                },
+            ],
+            "groups": {"inner_group": {"value": 1, "name": "variant_a"}},
+        },
+        "inner_variant_b": {
+            "description": "Inner variant B",
+            "display_name": "Inner B",
+            "type": "structure",
+            "size": 2,
+            "members": [
+                {
+                    "name": "val2",
+                    "size": 2,
+                    "type": "int",
+                    "description": "Value",
+                },
+            ],
+            "groups": {"inner_group": {"value": 2, "name": "variant_b"}},
+        },
+        "outer_group": {
+            "description": "Outer group",
+            "display_name": "Outer Group",
+            "type": "group",
+            "size": 2,
+        },
+        "outer_simple": {
+            "description": "Simple outer member",
+            "display_name": "Simple Outer",
+            "type": "structure",
+            "size": 4,
+            "members": [
+                {
+                    "name": "data",
+                    "size": 4,
+                    "type": "uint",
+                    "description": "Data",
+                },
+            ],
+            "groups": {"outer_group": {"value": 1, "name": "simple"}},
+        },
+        "outer_nested": {
+            "description": "Outer member with nested group field",
+            "display_name": "Nested Outer",
+            "type": "structure",
+            "size": 5,
+            "members": [
+                {"name": "id", "size": 2, "type": "uint", "description": "ID"},
+                {
+                    "name": "context",
+                    "size": 3,
+                    "type": "inner_group",
+                    "description": "Context",
+                },
+            ],
+            "groups": {"outer_group": {"value": 2, "name": "nested"}},
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("my_file.scala")
+    )
+    # outer_group should have a full variantPath with recursive call
+    assert (
+        "def variantPath(value: outer_group): String = value match {" in result
+    )
+    assert 'case _: outer_simple => "simple"' in result
+    assert (
+        'case v: outer_nested => "nested" + "_" + inner_group.variantPath(v.context)'
+        in result
+    )
+    # inner_group has no nesting, so variantPath delegates to variantName
+    assert (
+        "def variantPath(value: inner_group): String = variantName(value)"
+        in result
+    )
+
+
+def test_render_structure_multi_group() -> None:
+    """Test that a structure belonging to multiple groups extends all of them."""
+    definitions = {
+        "file": {
+            "brief": "Multi-group test",
+            "description": "Testing multi-group extends",
+        },
+        "group_a": {
+            "description": "Group A",
+            "display_name": "Group A",
+            "type": "group",
+            "size": 1,
+        },
+        "group_b": {
+            "description": "Group B",
+            "display_name": "Group B",
+            "type": "group",
+            "size": 1,
+        },
+        "shared_struct": {
+            "description": "Shared structure",
+            "display_name": "Shared",
+            "type": "structure",
+            "size": 4,
+            "members": [
+                {
+                    "name": "value",
+                    "size": 4,
+                    "type": "int",
+                    "description": "Val",
+                },
+            ],
+            "groups": {
+                "group_a": {"value": 1, "name": "shared"},
+                "group_b": {"value": 2, "name": "shared_alt"},
+            },
+        },
+        "only_a": {
+            "description": "Only in group A",
+            "display_name": "Only A",
+            "type": "structure",
+            "size": 2,
+            "members": [
+                {"name": "x", "size": 2, "type": "int", "description": "X"},
+            ],
+            "groups": {"group_a": {"value": 3, "name": "only_a"}},
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("my_file.scala")
+    )
+    # shared_struct should extend both groups
+    assert (
+        "extends group_a with group_b with JsonSerializable" in result
+        or "extends group_b with group_a with JsonSerializable" in result
+    )
+    # only_a should extend only group_a
+    assert "final case class only_a(" in result
+    # Verify only_a extends just group_a (check it doesn't extend group_b)
+    assert "final case class only_a(" in result
+
+    # Check variantName for both groups
+    assert 'case _: shared_struct => "shared"' in result
+    assert 'case _: shared_struct => "shared_alt"' in result
