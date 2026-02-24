@@ -1542,7 +1542,7 @@ def test_escape_scala_keyword_helper() -> None:
 
 
 def test_render_group_variant_name() -> None:
-    """Test that variantName is generated on group companion objects."""
+    """Test that variantName is generated from group member name field."""
     definitions = {
         "file": {
             "brief": "variantName test",
@@ -1794,6 +1794,6 @@ def test_render_structure_multi_group() -> None:
     # Verify only_a extends just group_a (check it doesn't extend group_b)
     assert "final case class only_a(" in result
 
-    # Check variantName for both groups
+    # Check variantName for both groups (from member name field)
     assert 'case _: shared_struct => "shared"' in result
     assert 'case _: shared_struct => "shared_alt"' in result

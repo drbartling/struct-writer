@@ -715,7 +715,7 @@ def _render_group_decoder(
     s += f"  def fromBytes(bytes: Array[Byte]): {group_name} =\n"
     s += "    decode(bytes, 0L).get\n\n"
 
-    # Generate variantName
+    # Generate variantName (from group member name field)
     s += f"  def variantName(value: {group_name}): String = value match {{\n"
     for member in sorted_members:
         s += f'    case _: {member.type} => "{member.name}"\n'
