@@ -18,9 +18,8 @@ description = '''
 header = '''
 package ${package}
 
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import com.github.plokhotnyuk.jsoniter_scala.macros._
 
 import scala.util.{Try, Success, Failure}
 import scala.collection.mutable
@@ -127,6 +126,15 @@ object BinaryUtils {
   def int8LEtoBytes(value: Byte): Array[Byte] = Array(value)
   def bytesToUint8LE(bytes: Array[Byte], offset: Int): Int = bytesToUint8(bytes, offset)
   def uint8LEtoBytes(value: Int): Array[Byte] = Array(uint8ToBytes(value))
+
+  // Hex string parsing utilities for JSON deserialization
+  def parseHexString(hex: String): Long = {
+    val cleaned = hex.stripPrefix("0x").stripPrefix("0X")
+    java.lang.Long.parseLong(cleaned, 16)
+  }
+
+  def parseHexStringToInt(hex: String): Int = parseHexString(hex).toInt
+  def parseHexStringToByte(hex: String): Byte = parseHexString(hex).toByte
 }
 
 // Base trait for all generated structures
@@ -144,32 +152,10 @@ trait ByteSequenceCodec[T <: ByteSequence] {
   def toBytes(value: T): Seq[Byte]
 }
 
-// JSON serialization trait
-trait CustomJsonSerializer {
-  type ObjectToSerialize <: AnyRef
-
-  implicit val formats: Formats = DefaultFormats
-
-  def serialize(): String = Serialization.writePretty(getObjectToSerialize())
-  def serializeToJValue(): JValue = parse(serialize())
-
-  protected def getObjectToSerialize(): ObjectToSerialize
-}
-
-// JSON deserialization trait
-trait CustomJsonDeserializer[D <: AnyRef] {
-
-  def deserialize(json: String): D = {
-    implicit val formats: Formats = DefaultFormats
-    fromJson(json)
-  }
-
-  def deserializeFromJValue(jValue: JValue): D = {
-    val json = compact(render(jValue))
-    deserialize(json)
-  }
-
-  protected def fromJson(json: String)(implicit formats: Formats): D
+// JSON serialization trait using jsoniter-scala
+trait JsonSerializable {
+  def serialize(): String
+  def serializeToBytes(): Array[Byte]
 }
 
 '''
@@ -253,18 +239,21 @@ header = '''
 final case class ${structure.name}(
 '''
 footer = '''
-) extends ${structure.parent_trait} with CustomJsonSerializer {
+) extends ${structure.parent_trait} with JsonSerializable {
   override def SizeInBytes: Int = ${structure.name}.SizeInBytes
   override def toByteSeq: Try[Seq[Byte]] = ${structure.name}.encode(this)
 
-  // JSON serialization - uses json4s automatic case class serialization
-  type ObjectToSerialize = ${structure.name}
-  protected def getObjectToSerialize(): ${structure.name} = this
+  // JSON serialization using jsoniter-scala
+  def serialize(): String = writeToString(this)(${structure.name}.codec)
+  def serializeToBytes(): Array[Byte] = writeToArray(this)(${structure.name}.codec)
 }
 
 object ${structure.name} extends ByteSequenceCodec[${structure.name}] {
   ${structure.marker_def}
   final val SizeInBytes = ${structure.size}
+
+  // jsoniter-scala codec - derived at compile time
+  implicit val codec: JsonValueCodec[${structure.name}] = JsonCodecMaker.make
 
   // Binary decode/encode
   override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[${structure.name}] = Try {
@@ -286,6 +275,10 @@ ${structure.deserialization}
 ${structure.serialization}
     bytes.toSeq
   }
+
+  // JSON deserialization
+  def deserialize(json: String): ${structure.name} = readFromString(json)(codec)
+  def deserialize(bytes: Array[Byte]): ${structure.name} = readFromArray(bytes)(codec)
 }
 
 '''
@@ -345,17 +338,20 @@ header = '''
 final case class ${bit_field.name}(
 '''
 footer = '''
-) extends ByteSequence with CustomJsonSerializer {
+) extends ByteSequence with JsonSerializable {
   override def SizeInBytes: Int = ${bit_field.name}.SizeInBytes
   override def toByteSeq: Try[Seq[Byte]] = ${bit_field.name}.encode(this)
 
-  // JSON serialization - uses json4s automatic case class serialization
-  type ObjectToSerialize = ${bit_field.name}
-  protected def getObjectToSerialize(): ${bit_field.name} = this
+  // JSON serialization using jsoniter-scala
+  def serialize(): String = writeToString(this)(${bit_field.name}.codec)
+  def serializeToBytes(): Array[Byte] = writeToArray(this)(${bit_field.name}.codec)
 }
 
 object ${bit_field.name} extends ByteSequenceCodec[${bit_field.name}] {
   final val SizeInBytes = ${bit_field.size}
+
+  // jsoniter-scala codec - derived at compile time
+  implicit val codec: JsonValueCodec[${bit_field.name}] = JsonCodecMaker.make
 
   override def decode(bytes: Array[Byte], streamPositionHead: Long): Try[${bit_field.name}] = Try {
     fromBytes(bytes)
@@ -375,6 +371,10 @@ ${bit_field.deserialization}
   def toBytes(value: ${bit_field.name}): Seq[Byte] = {
 ${bit_field.serialization}
   }
+
+  // JSON deserialization
+  def deserialize(json: String): ${bit_field.name} = readFromString(json)(codec)
+  def deserialize(bytes: Array[Byte]): ${bit_field.name} = readFromArray(bytes)(codec)
 }
 
 '''
