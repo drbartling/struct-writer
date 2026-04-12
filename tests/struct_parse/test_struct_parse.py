@@ -185,6 +185,53 @@ element_into_bytes_params = [
     (
         {
             "commands": {
+                "cmd_temperature_set": {
+                    "temperature": (75).to_bytes(
+                        length=2, byteorder="big", signed=True
+                    ),
+                    "units": "f",
+                }
+            }
+        },
+        (
+            b"\x02"
+            + (75).to_bytes(length=2, byteorder="big", signed=True)
+            + b"\x01"
+        ),
+    ),
+    (
+        {
+            "commands": {
+                "cmd_temperature_set": {
+                    "temperature": 75,
+                    "units": b"\x01",
+                }
+            }
+        },
+        (
+            b"\x02"
+            + (75).to_bytes(length=2, byteorder="big", signed=True)
+            + b"\x01"
+        ),
+    ),
+    (
+        {
+            "commands": {
+                "cmd_temperature_set": (75).to_bytes(
+                    length=2, byteorder="big", signed=True
+                )
+                + b"\x01"
+            }
+        },
+        (
+            b"\x02"
+            + (75).to_bytes(length=2, byteorder="big", signed=True)
+            + b"\x01"
+        ),
+    ),
+    (
+        {
+            "commands": {
                 "cmd_label_thermostat": {
                     "label": "Living Room",
                 }

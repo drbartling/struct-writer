@@ -24,6 +24,9 @@ def _element_into_bytes(
     size: int | None = None,
 ) -> bytes:
     element_name = next(iter(element.keys()))
+    element_value = next(iter(element.values()))
+    if isinstance(element_value, bytes):
+        return element_value
     b = b""
     if definition := definitions.get(element_name):
         if "group" == definition["type"]:

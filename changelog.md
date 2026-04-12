@@ -1,5 +1,13 @@
 # struct-writer Change Log
 
+## Unreleased
+
+- Allow pre-serialized bytes to be passed through directly as element values when serializing structures
+- Add Scala code generation support
+- Add raw types and common field detection for Scala group traits
+- Add JSON serialization for Scala using jsoniter-scala
+- Add JSON deserialization for Scala
+
 ## 0.8.2
 
 - Test and support python 3.14
