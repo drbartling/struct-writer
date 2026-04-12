@@ -1,10 +1,10 @@
 import json
 import logging
-import tomllib
 from pathlib import Path
 from typing import Any
 
 import click
+import tomli as tomllib
 import yaml
 from rich.traceback import install
 

@@ -1,5 +1,6 @@
-import tomllib
 from typing import Any
+
+import tomli as tomllib
 
 
 def default_template() -> dict[str, Any]:

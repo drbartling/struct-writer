@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Switch from `tomllib` to `pytoml` to support Python 3.10 and later.  Previously we supported only python 3.12 and later.
 - Allow pre-serialized bytes to be passed through directly as element values when serializing structures
 - Add Scala code generation support
 - Add raw types and common field detection for Scala group traits
