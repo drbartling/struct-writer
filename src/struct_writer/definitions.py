@@ -1,6 +1,8 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Self, override
+from typing import Any
+
+from typing_extensions import Self, override
 
 
 class ParseFailed(Exception):

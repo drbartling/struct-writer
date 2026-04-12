@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## 0.9.1
+
+- Fix support for python 3.11, drop support for python 3.10
+
 ## 0.9.0
 
 - Switch from `tomllib` to `tomli` to support Python 3.10 and later.  Previously we supported only python 3.12 and later.
