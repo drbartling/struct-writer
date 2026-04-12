@@ -506,7 +506,7 @@ def render_structure(
         if member.type in definitions and member.type not in rendered:
             s += render_definition(member.type, definitions, templates)
 
-    base_trait = extends_trait if extends_trait else "ByteSequence"
+    base_trait = extends_trait or "ByteSequence"
     s += _render_structure_case_class(
         structure_name, structure_dict, definitions, base_trait
     )

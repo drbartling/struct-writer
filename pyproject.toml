@@ -4,12 +4,12 @@ description = "Generate structured code for APIs and documentation"
 name = "struct_writer"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.8.2"
+version = "0.9.0"
 dependencies = [
-    "click>=8.3.1",
+    "click>=8.3.2",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
-    "rich>=14.2.0",
+    "rich>=14.3.4",
     "tomli>=2.4.1",
 ]
 
@@ -21,11 +21,11 @@ struct-writer = "struct_writer.generate_structured_code:main"
 
 [dependency-groups]
 dev = [
-    "basedpyright>=1.35.0",
+    "basedpyright>=1.39.0",
     "devtools>=0.12.2",
-    "pytest>=9.0.1",
-    "pytest-cov>=7.0.0",
-    "ruff>=0.14.8",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.10",
 ]
 
 [tool.coverage.paths]
