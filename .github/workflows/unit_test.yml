@@ -37,3 +37,5 @@ jobs:
 
     - name: Run tests
       run: uv run pytest
+      env:
+        PYTHONHASHSEED: 0

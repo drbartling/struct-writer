@@ -192,9 +192,9 @@ def render_definitions(
     structure_to_groups = _build_structure_to_groups(definitions.definitions)
 
     # Render groups first (they define the sealed traits that structures extend)
-    group_names = {
+    group_names = sorted(
         k for k, v in definitions.definitions.items() if isinstance(v, Group)
-    }
+    )
     for element_name in group_names:
         s += render_definition(
             element_name,
