@@ -1797,3 +1797,99 @@ def test_render_structure_multi_group() -> None:
     # Check variantName for both groups (from member name field)
     assert 'case _: shared_struct => "shared"' in result
     assert 'case _: shared_struct => "shared_alt"' in result
+
+
+def test_reserved_word_escaping() -> None:
+    """Test that Scala reserved words are escaped with backticks in field names."""
+    definitions = {
+        "file": {
+            "brief": "Test reserved words",
+            "description": "Testing reserved word escaping",
+        },
+        "ReservedFields": {
+            "description": "Structure with reserved word field names",
+            "display_name": "Reserved Fields Test",
+            "type": "structure",
+            "size": 8,
+            "members": [
+                {
+                    "name": "type",
+                    "type": "uint",
+                    "size": 4,
+                    "description": "type field",
+                },
+                {
+                    "name": "package",
+                    "type": "uint",
+                    "size": 4,
+                    "description": "package field",
+                },
+            ],
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("reserved_test.scala")
+    )
+
+    # Check field declarations are escaped
+    assert "`type`: Long" in result
+    assert "`package`: Long" in result
+
+    # Check named arguments in fromBytes are escaped
+    assert "`type` = " in result
+    assert "`package` = " in result
+
+    # Check field access in toBytes is escaped
+    assert "event.`type`" in result
+    assert "event.`package`" in result
+
+
+def test_undefined_types_become_array_byte() -> None:
+    """Test that undefined/unknown types are converted to Array[Byte]."""
+    definitions = {
+        "file": {
+            "brief": "Test undefined types",
+            "description": "Testing undefined type handling",
+        },
+        "UnknownTypeStruct": {
+            "description": "Structure with unknown type fields",
+            "display_name": "Unknown Type Test",
+            "type": "structure",
+            "size": 12,
+            "members": [
+                {
+                    "name": "known_field",
+                    "type": "uint",
+                    "size": 4,
+                    "description": "known type",
+                },
+                {
+                    "name": "f32_field",
+                    "type": "f32",
+                    "size": 4,
+                    "description": "unknown f32 type",
+                },
+                {
+                    "name": "custom_field",
+                    "type": "SomeUndefinedType",
+                    "size": 4,
+                    "description": "unknown custom type",
+                },
+            ],
+        },
+    }
+    template = default_template_scala.default_template()
+    result = render_scala.render_file(
+        definitions, template, Path("unknown_type_test.scala")
+    )
+
+    # Check known type is correct
+    assert "known_field: Long" in result
+
+    # Check unknown types are converted to Array[Byte]
+    assert "f32_field: Array[Byte]" in result
+    assert "custom_field: Array[Byte]" in result
+
+    # Check decode generates bytes.slice for unknown types
+    assert "bytes.slice(" in result
