@@ -1,5 +1,13 @@
 # struct-writer Change Log
 
+## Unreleased
+
+- Make code generation deterministic by sorting element and group names before iteration
+- Add `PYTHONHASHSEED=0` to CI for consistent test results
+- Escape Scala reserved words (type, package, class, etc.) with backticks in generated code
+- Convert undefined/unknown types to `Array[Byte]` in Scala renderer
+- Add `.DS_Store` to `.gitignore`
+
 ## 0.9.1
 
 - Fix support for python 3.11, drop support for python 3.10
