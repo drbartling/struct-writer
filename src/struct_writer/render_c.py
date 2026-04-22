@@ -32,11 +32,11 @@ def render_definitions(
     templates: dict[str, Any],
 ) -> str:
     s = ""
-    element_names = set(definitions.keys())
+    element_names = sorted(definitions.keys())
 
-    group_names = {
+    group_names = sorted(
         k for k, v in definitions.items() if "group" == v.get("type")
-    }
+    )
     for element_name in group_names:
         s += render_definition(element_name, definitions, templates)
 

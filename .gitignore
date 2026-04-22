@@ -146,3 +146,6 @@ bar.*
 .bsp/
 .metals/
 .scala-build/
+
+# macOS
+.DS_Store

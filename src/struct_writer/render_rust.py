@@ -45,9 +45,9 @@ def render_definitions(
     s = ""
     element_names = sorted(definitions.definitions.keys())
 
-    group_names = {
+    group_names = sorted(
         k for k, v in definitions.definitions.items() if isinstance(v, Group)
-    }
+    )
     for element_name in group_names:
         s += render_definition(element_name, definitions.definitions, templates)
 

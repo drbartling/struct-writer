@@ -1,5 +1,11 @@
 # struct-writer Change Log
 
+## Unreleased
+
+- Make code generation deterministic by sorting element and group names before iteration
+- Escape Scala reserved words (type, package, class, etc.) with backticks in generated code
+- Convert undefined/unknown types to `Array[Byte]` in Scala renderer
+
 ## 0.9.1
 
 - Fix support for python 3.11, drop support for python 3.10

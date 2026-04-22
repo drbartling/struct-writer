@@ -82,8 +82,17 @@ SCALA_KEYWORDS = {
 
 
 def escape_scala_keyword(name: str) -> str:
-    """Escape Scala keywords with backticks."""
+    """Escape Scala keywords with backticks.
+
+    Used for field names, parameter names, and identifiers that may
+    conflict with Scala reserved words.
+    """
     return f"`{name}`" if name in SCALA_KEYWORDS else name
+
+
+def _escaped_member_name(member: dict[str, Any]) -> str:
+    """Get the escaped member name for use in generated code."""
+    return escape_scala_keyword(member["name"])
 
 
 def format_large_int(value: int, *, for_pattern_match: bool = False) -> str:
@@ -192,9 +201,9 @@ def render_definitions(
     structure_to_groups = _build_structure_to_groups(definitions.definitions)
 
     # Render groups first (they define the sealed traits that structures extend)
-    group_names = {
+    group_names = sorted(
         k for k, v in definitions.definitions.items() if isinstance(v, Group)
-    }
+    )
     for element_name in group_names:
         s += render_definition(
             element_name,
@@ -243,9 +252,13 @@ def render_definition(
 def scala_type_for_member(
     member_type: str,
     size: int,
-    definitions: dict[str, DefinedType],  # noqa: ARG001
+    definitions: dict[str, DefinedType],
 ) -> str:
-    """Get the Scala type for a structure member."""
+    """Get the Scala type for a structure member.
+
+    For unknown types (not in type_map and not a defined type), returns
+    Array[Byte] to match the bytes.slice() decode that is generated.
+    """
     # Type mappings for primitive types
     int_types = {BYTES_1: "Byte", BYTES_2: "Short", BYTES_4: "Int", 8: "Long"}
     uint_types = {BYTES_1: "Int", BYTES_2: "Int", BYTES_4: "Long", 8: "Long"}
@@ -259,8 +272,10 @@ def scala_type_for_member(
     }
     if member_type in type_map:
         return type_map[member_type]
-    # Check if it's a defined type or use as-is
-    return member_type
+    # Return the type if it's a defined type, otherwise Array[Byte] for unknown
+    if member_type in definitions:
+        return member_type
+    return "Array[Byte]"
 
 
 def decode_call_for_member(
@@ -305,7 +320,7 @@ def encode_call_for_member(
 ) -> str:
     """Generate the encode call for a structure member."""
     member_type = member["type"]
-    member_name = member["name"]
+    member_name = _escaped_member_name(member)
     size = member["size"]
 
     int_funcs = {
@@ -426,8 +441,9 @@ def _render_structure_case_class(
 
     member_lines = []
     for member in structure_dict.get("members", []):
+        escaped_name = _escaped_member_name(member)
         if member["type"] == "reserved":
-            member_lines.append(f"  {member['name']}: Array[Byte],")
+            member_lines.append(f"  {escaped_name}: Array[Byte],")
         else:
             scala_type = scala_type_for_member(
                 member["type"], member["size"], definitions
@@ -437,7 +453,7 @@ def _render_structure_case_class(
                 if member.get("description")
                 else ""
             )
-            member_lines.append(f"  {member['name']}: {scala_type},{comment}")
+            member_lines.append(f"  {escaped_name}: {scala_type},{comment}")
 
     s += "\n".join(member_lines)
     s += f"\n) extends {base_trait} with JsonSerializable {{\n"
@@ -471,8 +487,9 @@ def _render_structure_companion(
     s += f"    {structure_name}(\n"
     offset = 0
     for member in structure_dict.get("members", []):
+        escaped_name = _escaped_member_name(member)
         decode_expr = decode_call_for_member(member, offset, definitions)
-        s += f"      {member['name']} = {decode_expr},\n"
+        s += f"      {escaped_name} = {decode_expr},\n"
         offset += member["size"]
     s += "    )\n  }\n\n"
 
@@ -596,10 +613,11 @@ def _render_group_trait(
 
     lines = [f"sealed trait {group_name} extends ByteSequence {{"]
     for field_name, field_type, field_size in common_fields:
+        escaped_name = escape_scala_keyword(field_name)
         scala_type = scala_type_for_member(field_type, field_size, definitions)
         if field_type in definitions:
             scala_type = field_type
-        lines.append(f"  def {field_name}: {scala_type}")
+        lines.append(f"  def {escaped_name}: {scala_type}")
     lines.append("}\n")
     return "\n".join(lines) + "\n"
 
@@ -624,11 +642,12 @@ def _render_raw_data_class(
     s += f"  def serializeToBytes(): Array[Byte] = writeToArray(this)({group_name}_RawData.codec)\n"
 
     for field_name, field_type, field_size in common_fields:
+        escaped_name = escape_scala_keyword(field_name)
         scala_type = scala_type_for_member(field_type, field_size, definitions)
         if field_type in definitions:
             scala_type = field_type
         default = _get_default_value_for_type(scala_type)
-        s += f"  override def {field_name}: {scala_type} = {default}\n"
+        s += f"  override def {escaped_name}: {scala_type} = {default}\n"
 
     s += "}\n\n"
 
@@ -814,8 +833,9 @@ def render_structure_with_group(  # noqa: PLR0915
     # Generate fields
     member_lines = []
     for member in structure_dict.get("members", []):
+        escaped_name = _escaped_member_name(member)
         if member["type"] == "reserved":
-            member_lines.append(f"  {member['name']}: Array[Byte],")
+            member_lines.append(f"  {escaped_name}: Array[Byte],")
         else:
             scala_type = scala_type_for_member(
                 member["type"], member["size"], definitions
@@ -825,7 +845,7 @@ def render_structure_with_group(  # noqa: PLR0915
                 if member.get("description")
                 else ""
             )
-            member_lines.append(f"  {member['name']}: {scala_type},{comment}")
+            member_lines.append(f"  {escaped_name}: {scala_type},{comment}")
 
     s += "\n".join(member_lines)
     s += f"\n) extends {extends_clause} with JsonSerializable {{\n"
@@ -855,8 +875,9 @@ def render_structure_with_group(  # noqa: PLR0915
     s += f"    {structure_name}(\n"
     offset = 0
     for member in structure_dict.get("members", []):
+        escaped_name = _escaped_member_name(member)
         decode_expr = decode_call_for_member(member, offset, definitions)
-        s += f"      {member['name']} = {decode_expr},\n"
+        s += f"      {escaped_name} = {decode_expr},\n"
         offset += member["size"]
     s += "    )\n"
     s += "  }\n\n"
@@ -923,10 +944,11 @@ def render_bit_field(  # noqa: C901, PLR0912, PLR0915
             last_bit = member["start"] + member["bits"] - 1
             s += f"  // Reserved: bits {member['start']}-{last_bit}\n"
         else:
+            escaped_name = _escaped_member_name(member)
             scala_type = "Int"  # Bit fields are typically small enough for Int
             if member["type"] == "bool":
                 scala_type = "Boolean" if member["bits"] == 1 else "Int"
-            member_lines.append(f"  {member['name']}: {scala_type},")
+            member_lines.append(f"  {escaped_name}: {scala_type},")
 
     s += "\n".join(member_lines)
     s += "\n) extends ByteSequence with JsonSerializable {\n"
@@ -960,13 +982,14 @@ def render_bit_field(  # noqa: C901, PLR0912, PLR0915
     for member in bit_field_dict.get("members", []):
         if member["type"] == "reserved":
             continue
+        escaped_name = _escaped_member_name(member)
         mask = (1 << member["bits"]) - 1
         mask_str = format_large_int(mask)
         shift = member["start"]
         if member["type"] == "bool" and member["bits"] == 1:
-            s += f"      {member['name']} = ((rawBits >> {shift}) & {mask_str}) != 0,\n"
+            s += f"      {escaped_name} = ((rawBits >> {shift}) & {mask_str}) != 0,\n"
         else:
-            s += f"      {member['name']} = ((rawBits >> {shift}) & {mask_str}).toInt,\n"
+            s += f"      {escaped_name} = ((rawBits >> {shift}) & {mask_str}).toInt,\n"
 
     s += "    )\n"
     s += "  }\n\n"
@@ -981,13 +1004,14 @@ def render_bit_field(  # noqa: C901, PLR0912, PLR0915
     for member in bit_field_dict.get("members", []):
         if member["type"] == "reserved":
             continue
+        escaped_name = _escaped_member_name(member)
         mask = (1 << member["bits"]) - 1
         mask_str = format_large_int(mask)
         shift = member["start"]
         if member["type"] == "bool" and member["bits"] == 1:
-            s += f"    rawBits |= ((if (value.{member['name']}) 1 else 0) << {shift})\n"
+            s += f"    rawBits |= ((if (value.{escaped_name}) 1 else 0) << {shift})\n"
         else:
-            s += f"    rawBits |= ((value.{member['name']} & {mask_str}) << {shift})\n"
+            s += f"    rawBits |= ((value.{escaped_name} & {mask_str}) << {shift})\n"
 
     # All write functions work with the rawBits directly
     s += f"    BinaryUtils.{write_func}(rawBits).toSeq\n"
