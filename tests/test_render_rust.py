@@ -746,7 +746,8 @@ pub units: u8,
 impl From<cmd_temperature_set> for cmd_temperature_set_slice {
 fn from(input: cmd_temperature_set) -> Self {
 
-let mut raw_bits = 0_u16;
+let mut raw_bits = !0_u16;
+raw_bits &= !(0b11_u16 << 7);
 raw_bits |= ((input.units as u16) & 0b11_u16) << 7;
 raw_bits.to_le_bytes()
 

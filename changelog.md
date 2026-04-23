@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Set unused bits and reserved bytes high by default in rust generated code
 - Make code generation deterministic by sorting element and group names before iteration
 - Escape Scala reserved words (type, package, class, etc.) with backticks in generated code
 - Convert undefined/unknown types to `Array[Byte]` in Scala renderer

@@ -484,20 +484,23 @@ def render_bit_field_serialization(
 ) -> str:
     bit_field_type = f"u{8 * bit_field_dict['size']}"
     serialization_lines = []
-    serialization_lines.append(f"let mut raw_bits = 0_{bit_field_type};")
+    serialization_lines.append(f"let mut raw_bits = !0_{bit_field_type};")
 
     for member in bit_field_dict.get("members", []):
-        mask = "0b" + "1" * member["bits"]
+        value_mask = "0b" + "1" * member["bits"]
+        clear_mask = f"!({value_mask}_{bit_field_type} << {member['start']})"
         shift = member["start"]
         s = ""
         match member["type"].lower():
             case "bool":
-                s = f"raw_bits |=  (if input.{member['name']} {{1_{bit_field_type}}} else {{0_{bit_field_type}}} <<  {shift});"
+                serialization_lines.append(f"raw_bits &= {clear_mask};")
+                s = f"raw_bits |= (if input.{member['name']} {{1_{bit_field_type}}} else {{0_{bit_field_type}}}) << {shift};"
                 serialization_lines.append(s)
             case "int":
                 pass
             case "uint":
-                s = f"raw_bits |= ((input.{member['name']} as {bit_field_type}) & {mask}_{bit_field_type}) << {shift};"
+                serialization_lines.append(f"raw_bits &= {clear_mask};")
+                s = f"raw_bits |= ((input.{member['name']} as {bit_field_type}) & {value_mask}_{bit_field_type}) << {shift};"
                 serialization_lines.append(s)
             case "reserved":
                 continue
@@ -507,7 +510,8 @@ def render_bit_field_serialization(
                 serialization_lines.append(s)
                 s = f"let {member['name']} = {member_repr}::from_le_bytes({member['name']}) as {bit_field_type};"
                 serialization_lines.append(s)
-                s = f"raw_bits |= (({member['name']}) & {mask}_{bit_field_type}) << {shift};"
+                serialization_lines.append(f"raw_bits &= {clear_mask};")
+                s = f"raw_bits |= (({member['name']}) & {value_mask}_{bit_field_type}) << {shift};"
                 serialization_lines.append(s)
 
     serialization_lines.append("raw_bits.to_le_bytes()")
