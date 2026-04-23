@@ -1,6 +1,6 @@
 # struct-writer Change Log
 
-## Unreleased
+## 0.10.0
 
 - Set unused bits and reserved bytes high by default in rust generated code
 - Make code generation deterministic by sorting element and group names before iteration
