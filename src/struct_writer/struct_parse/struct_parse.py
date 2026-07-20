@@ -63,7 +63,7 @@ def group_into_bytes(
     }
     member_definition = group_elements[group_member_name]
     tag = member_definition["groups"][group_name]["value"]
-    b += tag.to_bytes(1)
+    b += tag.to_bytes(1, byteorder=endianness)
 
     for e_name, e_value in element[group_name].items():
         b += element_into_bytes({e_name: e_value}, definitions, endianness)
@@ -380,7 +380,9 @@ def parse_bit_field(
             if is_negative:
                 bits_value = bits_value | (~mask)
         size = math.ceil(member["bits"] / 8.0)
-        masked_bytes = bits_value.to_bytes(length=size, signed=is_signed)
+        masked_bytes = bits_value.to_bytes(
+            length=size, byteorder=endianness, signed=is_signed
+        )
         parsed_members[member["name"]] = parse_bytes(
             masked_bytes, member["type"], definitions, endianness
         )

@@ -20,10 +20,10 @@ jobs:
 
     steps:
     - name: Checkout repository under test
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Install uv and set the python version
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v8
       with:
         python-version: ${{ matrix.python }}
         enable-cache: true
