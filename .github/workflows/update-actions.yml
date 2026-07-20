@@ -25,7 +25,7 @@ jobs:
         enable-cache: true
 
     - name: Install just
-      run: pipx install rust-just
+      run: pipx install rust-just pre-commit
 
     - name: Update pinned GitHub Actions
       run: just update-actions
