@@ -1,5 +1,9 @@
 # struct-writer Change Log
 
+## 0.10.1
+
+- Bring support back in for python 3.10
+
 ## 0.10.0
 
 - Set unused bits and reserved bytes high by default in rust generated code
