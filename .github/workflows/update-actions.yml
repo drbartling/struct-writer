@@ -1,0 +1,64 @@
+name: Update GitHub Actions Dependencies
+
+on:
+  schedule:
+  - cron: 0 6 * * 1
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-actions:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+      with:
+        token: ${{ secrets.GH_ACTIONS_PAT }}
+
+    - name: Install uv and set the python version
+      uses: astral-sh/setup-uv@v8.3.2
+      with:
+        python-version: '3.14'
+        enable-cache: true
+
+    - name: Install just
+      run: pipx install rust-just
+
+    - name: Update pinned GitHub Actions
+      run: just update-actions
+
+    - name: Check for changes
+      id: diff
+      run: |
+        if git diff --quiet -- .github/workflows; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Commit and push update branch
+      if: steps.diff.outputs.changed == 'true'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git checkout -B ci/update-workflow-dependencies
+        git add .github/workflows
+        git commit -m "ci: update GitHub Actions to latest versions"
+        git push --force origin ci/update-workflow-dependencies
+
+    - name: Open pull request and enable auto-merge
+      if: steps.diff.outputs.changed == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GH_ACTIONS_PAT }}
+      run: |
+        if ! gh pr view ci/update-workflow-dependencies --json number >/dev/null 2>&1; then
+          gh pr create \
+            --base master \
+            --head ci/update-workflow-dependencies \
+            --title "ci: update GitHub Actions to latest versions" \
+            --body "Automated weekly update of pinned GitHub Actions versions."
+        fi
+        gh pr merge ci/update-workflow-dependencies --auto --merge

@@ -38,5 +38,10 @@ loop:
         just test
 
 setup:
-    @uv venv --python 3.13.0
+    @uv venv --python 3.14.0
     @uv sync
+
+# update pinned GitHub Actions in .github/workflows to their latest version
+update-actions:
+    @uv run python scripts/update_github_actions.py
+    @pre-commit  pre-commit autoupdate
