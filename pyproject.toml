@@ -3,7 +3,7 @@ authors = [{name = "Ryan Bartling", email = "ryan.bartling@gmail.com"}]
 description = "Generate structured code for APIs and documentation"
 name = "struct_writer"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 version = "0.10.0"
 dependencies = [
     "click>=8.3.2",

@@ -16,13 +16,14 @@ jobs:
         - {name: '3.13', python: '3.13', os: ubuntu-latest}
         - {name: '3.12', python: '3.12', os: ubuntu-latest}
         - {name: '3.11', python: '3.11', os: ubuntu-latest}
+        - {name: '3.10', python: '3.10', os: ubuntu-latest}
 
     steps:
     - name: Checkout repository under test
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Install uv and set the python version
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v8
       with:
         python-version: ${{ matrix.python }}
         enable-cache: true
